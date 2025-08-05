@@ -26,6 +26,7 @@ bot = commands.Bot(command_prefix='bread ', intents=intents, help_command=None)
 # Name of the secret role
 secret_role = "bot test"
 GUILD_ID = 1247215187799572643
+BOT_OWNER_ID = 993607806915706891  # Replace with your actual Discord user ID
 
 # ⚡ Slash Commands
 @bot.tree.command(name="test", description="A simple test command")
@@ -991,6 +992,56 @@ async def slash_me(interaction: discord.Interaction):
     embed.timestamp = discord.utils.utcnow()
     
     await interaction.response.send_message(embed=embed)
+
+@bot.command()
+async def status(ctx):
+    # Check if user is the bot owner
+    if ctx.author.id != BOT_OWNER_ID:
+        await ctx.send("❌ Only the bot owner can use this command!")
+        return
+    
+    embed = discord.Embed(
+        title="🤖 Bot Status Report",
+        color=0x00ff00,
+        timestamp=discord.utils.utcnow()
+    )
+    
+    # Bot basic info
+    embed.add_field(
+        name="🔧 Bot Info",
+        value=f"**Status:** Online ✅\n**Latency:** {round(bot.latency * 1000)}ms\n**Uptime:** {discord.utils.format_dt(bot.user.created_at, 'R')}",
+        inline=False
+    )
+    
+    # Server info
+    guild_count = len(bot.guilds)
+    member_count = sum(guild.member_count for guild in bot.guilds)
+    embed.add_field(
+        name="📊 Server Stats",
+        value=f"**Servers:** {guild_count}\n**Total Members:** {member_count}\n**Current Server:** {ctx.guild.name}",
+        inline=True
+    )
+    
+    # Commands status
+    slash_commands = len(bot.tree.get_commands())
+    prefix_commands = len([cmd for cmd in bot.commands if not cmd.hidden])
+    embed.add_field(
+        name="⚡ Commands",
+        value=f"**Slash Commands:** {slash_commands}\n**Prefix Commands:** {prefix_commands}\n**All Working:** ✅",
+        inline=True
+    )
+    
+    # Permissions check
+    perms = ctx.guild.me.guild_permissions
+    perm_status = "✅" if all([perms.kick_members, perms.ban_members, perms.manage_messages]) else "⚠️"
+    embed.add_field(
+        name="🔑 Bot Permissions",
+        value=f"**Kick Members:** {'✅' if perms.kick_members else '❌'}\n**Ban Members:** {'✅' if perms.ban_members else '❌'}\n**Manage Messages:** {'✅' if perms.manage_messages else '❌'}\n**Status:** {perm_status}",
+        inline=False
+    )
+    
+    embed.set_footer(text=f"Requested by {ctx.author.name}")
+    await ctx.send(embed=embed)
 
 # ▶️ Start the bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
