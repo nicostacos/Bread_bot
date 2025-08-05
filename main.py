@@ -1,4 +1,4 @@
-#thynico creation guys...
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -27,29 +27,27 @@ bot = commands.Bot(command_prefix='bread ', intents=intents, help_command=None)
 # Name of the secret role
 secret_role = "bot test"
 GUILD_ID = 1247215187799572643
-BOT_OWNER_ID = 993607806915706891  # Replace with your actual Discord user ID
+BOT_OWNER_ID = 993607806915706891
 
 # Add this at the top with other variables
-shutdown_confirmations = {}
+bot_start_time = None
+default_filter_words = ["fuck", "shit", "bitch", "nigger", "nigga", "niggers", "niggas", "nigguh", "nigguhs"]
+custom_filter_words = default_filter_words.copy()
 
 # ⚡ Slash Commands
 @bot.tree.command(name="test", description="A simple test command")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 async def test_command(interaction: discord.Interaction):
     await interaction.response.send_message("Test command works! ✅")
 
 @bot.tree.command(name="ping", description="Check if the bot is responsive")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong! 🏓")
 
 @bot.tree.command(name="hello", description="Say hello to the bot")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 async def slash_hello(interaction: discord.Interaction):
     await interaction.response.send_message(f"Hello, {interaction.user.mention}! 👋")
 
 @bot.tree.command(name="coin_toss", description="flips a coin")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 async def coin_toss(interaction: discord.Interaction):
     result = random.choice(["Heads", "Tails"])
     emoji = "👑" if result == "Heads" else "🔢"
@@ -62,7 +60,6 @@ async def coin_toss(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="kick", description="Kick a member from the server")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(member="The member to kick", reason="Reason for kicking")
 async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
     # Check if user has administrator permissions
@@ -99,7 +96,6 @@ async def kick(interaction: discord.Interaction, member: discord.Member, reason:
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="ban", description="Ban a member from the server")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(member="The member to ban", reason="Reason for banning")
 async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
     if not interaction.user.guild_permissions.ban_members:
@@ -131,11 +127,10 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="unban", description="Unban a member from the server")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(user="The user to unban", reason="Reason for unbanning")
 async def unban(interaction: discord.Interaction, user: discord.User, reason: str = "No reason provided"):
     if not interaction.user.guild_permissions.ban_members:
-        await interaction.response.send_message("❌ You need Administrator permissions to use this command!", ephemeral=True)
+        await interaction.response.send_message("❌ You need mod permissions to use this command!", ephemeral=True)
         return
 
     if not interaction.guild.me.guild_permissions.ban_members:
@@ -151,12 +146,11 @@ async def unban(interaction: discord.Interaction, user: discord.User, reason: st
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="mute", description="Mute a member for a specified duration")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(member="The member to mute", duration="Duration in minutes", reason="Reason for muting")
 async def mute(interaction: discord.Interaction, member: discord.Member, duration: int = 10, reason: str = "No reason provided"):
     # Check if user has administrator permissions
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need Administrator permissions to use this command!", ephemeral=True)
+    if not interaction.user.guild_permissions.moderate_members:
+        await interaction.response.send_message("❌ You need moderate members permissions to use this command!", ephemeral=True)
         return
     
     # Check if bot has timeout permissions
@@ -196,11 +190,10 @@ async def mute(interaction: discord.Interaction, member: discord.Member, duratio
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="unmute", description="Unmute a member")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(member="The member to unmute", reason="Reason for unmuting")
 async def unmute(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need Administrator permissions to use this command!", ephemeral=True)
+    if not interaction.user.guild_permissions.moderate_members:
+        await interaction.response.send_message("❌ You need moderate members permissions to use this command!", ephemeral=True)
         return
 
     if not interaction.guild.me.guild_permissions.moderate_members:
@@ -228,7 +221,6 @@ async def unmute(interaction: discord.Interaction, member: discord.Member, reaso
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="purge", description="Purge messages from a channel")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(limit="Number of messages to purge")
 async def purge(interaction: discord.Interaction, limit: int = 2000):
     if not interaction.user.guild_permissions.administrator:
@@ -252,7 +244,6 @@ async def purge(interaction: discord.Interaction, limit: int = 2000):
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="broadcast", description="Broadcast a message to all channels")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(message="The message to broadcast", ping_everyone="Whether to ping @everyone")
 async def broadcast(interaction: discord.Interaction, message: str, ping_everyone: bool = False):
     if not interaction.user.guild_permissions.administrator:
@@ -279,22 +270,18 @@ async def broadcast(interaction: discord.Interaction, message: str, ping_everyon
     except Exception as e:
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
-
-# 🎉 When bot is ready
+# ___________________________________________________________________________________________________________________________________________________________________
+# ___________________________________________________________________________________________________________________________________________________________________
+# ___________________________________________________________________________________________________________________________________________________________________
 @bot.event
 async def on_ready():
-    # Check if shutdown flag exists
-    if os.path.exists('shutdown_flag.txt'):
-        print("Shutdown flag detected. Bot will not start.")
-        await bot.close()
-        return
+    global bot_start_time
+    bot_start_time = discord.utils.utcnow()  # Record when bot came online
     
     print(f"We are ready to go in, {bot.user.name}")
-    
     try:
-        guild = discord.Object(id=GUILD_ID)
-        synced = await bot.tree.sync(guild=guild)
-        print(f"✅ Synced {len(synced)} guild commands: {[cmd.name for cmd in synced]}")
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} global commands: {[cmd.name for cmd in synced]}")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
 
@@ -303,192 +290,221 @@ async def on_ready():
 async def on_member_join(member):
     await member.send(f"Welcome to the server {member.name}")
 
-# filter
 @bot.event
 async def on_message(message):
+    # Ignore bot messages
     if message.author == bot.user:
         return
-
-    #  filter
-    if "fuck" in message.content.lower() or "shit" in message.content.lower() or "bitch" in message.content.lower() or "nigger" in message.content.lower() or "nigga" in message.content.lower() or "niggers" in message.content.lower() or "niggas" in message.content.lower() or "nigguh" in message.content.lower() or "nigguhs" in message.content.lower() or "nazi" in message.content.lower():
-        await message.delete()
-        await message.channel.send(f"{message.author.mention} Bad boy don't use that word!")
+    
+    # Check if message is in DMs and contains commands
+    if isinstance(message.channel, discord.DMChannel):
+        if message.content.startswith('bread ') or message.content.startswith('/'):
+            await message.channel.send("Hello! You cannot use prefix commands in DMs, use slash commands instead.")
+            return
+    
+    # Check for filtered words (only in guilds)
+    if message.guild:
+        message_lower = message.content.lower()
+        for word in custom_filter_words:
+            if word in message_lower:
+                try:
+                    await message.delete()
+                    
+                    embed = discord.Embed(
+                        title="🚫 Message Filtered",
+                        description=f"{message.author.mention} Bad boy don't use that word!",
+                        color=0xff0000
+                    )
+                    embed.set_footer(text="Message deleted by chat filter")
+                    
+                    await message.channel.send(embed=embed, delete_after=5)
+                    break
+                except discord.Forbidden:
+                    print(f"❌ No permission to delete message from {message.author}")
+                except Exception as e:
+                    print(f"❌ Error deleting message: {e}")
 
     await bot.process_commands(message)
 
-# 📦 Prefix Command: bb hello
-@bot.command()
-async def hello(ctx):
-    await ctx.send(f"Hello, {ctx.author.mention}!")
+@bot.tree.command(name="filter", description="Manage the chat filter")
+@app_commands.describe(
+    action="Action to perform",
+    word="Word to add or remove from filter"
+)
+@app_commands.choices(action=[
+    app_commands.Choice(name="add", value="add"),
+    app_commands.Choice(name="remove", value="remove"),
+    app_commands.Choice(name="list", value="list"),
+    app_commands.Choice(name="reset", value="reset")
+])
+async def filter_command(interaction: discord.Interaction, action: str, word: str = None):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You need Administrator permissions to use this command!", ephemeral=True)
+        return
+    
+    global custom_filter_words
+    
+    if action == "add":
+        if not word:
+            await interaction.response.send_message("❌ Please provide a word to add!", ephemeral=True)
+            return
+        
+        word = word.lower()
+        if word in custom_filter_words:
+            await interaction.response.send_message(f"❌ `{word}` is already in the filter!", ephemeral=True)
+            return
+        
+        custom_filter_words.append(word)
+        embed = discord.Embed(
+            title="✅ Word Added to Filter",
+            description=f"Added `{word}` to the chat filter", ephemeral=True,
+            color=0x00ff00
+        )
+        embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
+        embed.set_footer(text=f"Modified by {interaction.user.name}")
+        await interaction.response.send_message(embed=embed)
+    
+    elif action == "remove":
+        if not word:
+            await interaction.response.send_message("❌ Please provide a word to remove!", ephemeral=True)
+            return
+        
+        word = word.lower()
+        if word not in custom_filter_words:
+            await interaction.response.send_message(f"❌ `{word}` is not in the filter!", ephemeral=True)
+            return
+        
+        custom_filter_words.remove(word)
+        embed = discord.Embed(
+            title="✅ Word Removed from Filter",
+            description=f"Removed `{word}` from the chat filter",
+            color=0xff9900
+        )
+        embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
+        embed.set_footer(text=f"Modified by {interaction.user.name}")
+        await interaction.response.send_message(embed=embed)
+    
+    elif action == "list":
+        if not custom_filter_words:
+            embed = discord.Embed(
+                title="📝 Chat Filter List",
+                description="No words are currently being filtered.",
+                color=0x808080
+            )
+        else:
+            # Show uncensored words for moderators
+            word_list = ", ".join([f"`{word}`" for word in custom_filter_words])
+            
+            embed = discord.Embed(
+                title="📝 Chat Filter List",
+                description=f"Currently filtering {len(custom_filter_words)} words:",
+                color=0x0099ff
+            )
+            embed.add_field(name="Filtered Words", value=word_list, inline=False)
+        
+        embed.set_footer(text=f"Requested by {interaction.user.name}")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    elif action == "reset":
+        custom_filter_words = default_filter_words.copy()
+        embed = discord.Embed(
+            title="🔄 Filter Reset",
+            description="Chat filter has been reset to default settings",
+            color=0xff0000
+        )
+        embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
+        embed.set_footer(text=f"Reset by {interaction.user.name}")
+        await interaction.response.send_message(embed=embed)
 
-# bb assign
 @bot.command()
-async def assign(ctx):
-    role = discord.utils.get(ctx.guild.roles, name=secret_role)
-    if role:
-        await ctx.author.add_roles(role)
-        await ctx.send(f"{ctx.author.mention} is now assigned to {secret_role}!")
+@commands.has_permissions(administrator=True)
+async def filter(ctx, action=None, *, word=None):
+    global custom_filter_words
+    
+    if not action:
+        await ctx.send("❌ Please specify an action: `add`, `remove`, `list`, or `reset`")
+        return
+    
+    action = action.lower()
+    
+    if action == "add":
+        if not word:
+            await ctx.send("❌ Please provide a word to add!")
+            return
+        
+        word = word.lower()
+        if word in custom_filter_words:
+            await ctx.send(f"❌ `{word}` is already in the filter!")
+            return
+        
+        custom_filter_words.append(word)
+        embed = discord.Embed(
+            title="✅ Word Added to Filter",
+            description=f"Added `{word}` to the chat filter",ephemeral=True,
+            color=0x00ff00
+        )
+        embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
+        embed.set_footer(text=f"Modified by {ctx.author.name}")
+        await ctx.send(embed=embed)
+    
+    elif action == "remove":
+        if not word:
+            await ctx.send("❌ Please provide a word to remove!")
+            return
+        
+        word = word.lower()
+        if word not in custom_filter_words:
+            await ctx.send(f"❌ `{word}` is not in the filter!",ephemeral=True)
+            return
+        
+        custom_filter_words.remove(word)
+        embed = discord.Embed(
+            title="✅ Word Removed from Filter",
+            description=f"Removed `{word}` from the chat filter",ephemeral=True,
+            color=0xff9900
+        )
+        embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
+        embed.set_footer(text=f"Modified by {ctx.author.name}")
+        await ctx.send(embed=embed)
+    
+    elif action == "list":
+        if not custom_filter_words:
+            embed = discord.Embed(
+                title="📝 Chat Filter List",
+                description="No words are currently being filtered.",
+                color=0x808080
+            )
+        else:
+            # Show uncensored words for moderators
+            word_list = ", ".join([f"`{word}`" for word in custom_filter_words])
+            
+            embed = discord.Embed(
+                title="📝 Chat Filter List",
+                description=f"Currently filtering {len(custom_filter_words)} words:",
+                color=0x0099ff
+            )
+            embed.add_field(name="Filtered Words", value=word_list, inline=False)
+        
+        embed.set_footer(text=f"Requested by {ctx.author.name}")
+        try:
+            await ctx.author.send(embed=embed)
+            await ctx.send("📝 Filter list sent to your DMs!", delete_after=3)
+        except discord.Forbidden:
+            await ctx.send("❌ I can't send you a DM! Please enable DMs from server members.", delete_after=5)
+    
+    elif action == "reset":
+        custom_filter_words = default_filter_words.copy()
+        embed = discord.Embed(
+            title="🔄 Filter Reset",
+            description="Chat filter has been reset to default settings",
+            color=0xff0000
+        )
+        embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
+        embed.set_footer(text=f"Reset by {ctx.author.name}")
+        await ctx.send(embed=embed)
+    
     else:
-        await ctx.send("Role doesn't exist!")
-
-#  bb remove
-@bot.command()
-async def remove(ctx):
-    role = discord.utils.get(ctx.guild.roles, name=secret_role)
-    if role:
-        await ctx.author.remove_roles(role)
-        await ctx.send(f"{ctx.author.mention} has had the {secret_role} removed")
-    else:
-        await ctx.send("Role doesn't exist!")
-
-#  bb dm
-@bot.command()
-async def dm(ctx, *, msg):
-    try:
-        await ctx.author.send(f"You said: {msg}")
-        await ctx.send("✅ DM sent!", delete_after=3)
-    except discord.Forbidden:
-        await ctx.send("❌ I can't send you a DM! Please check your privacy settings.")
-    except Exception as e:
-        await ctx.send(f"❌ An error occurred: {e}")
-
-#  bb reply
-@bot.command()
-async def reply(ctx):
-    await ctx.reply("This is a reply to your message.")
-
-# bb poll
-@bot.command()
-async def poll(ctx, *, question):
-    embed = discord.Embed(title="📊 New Poll", description=question)
-    poll_message = await ctx.send(embed=embed)
-    await poll_message.add_reaction("👍")
-    await poll_message.add_reaction("🫣")
-
-# 🔐 Prefix Command: bb secret (role protected)
-@bot.command()
-@commands.has_role(secret_role)
-async def secret(ctx):
-    await ctx.send("I dont know.")
-
-@secret.error
-async def secret_error(ctx, error):
-    if isinstance(error, commands.MissingRole):
-        await ctx.send("You do not have permission to do that.")
-
-# 📦 Prefix Commands for Moderation
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
-    if not ctx.guild.me.guild_permissions.kick_members:
-        await ctx.send("❌ I don't have permission to kick members!")
-        return
-    
-    if member == ctx.author:
-        await ctx.send("❌ You can't kick yourself!")
-        return
-    
-    if member == ctx.guild.me:
-        await ctx.send("❌ I can't kick myself!")
-        return
-    
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ You can't kick someone with equal or higher roles!")
-        return
-    
-    try:
-        await member.kick(reason=reason)
-        await ctx.send(f"✅ {member.mention} has been kicked!\nReason: {reason}")
-    except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to kick this member!")
-    except Exception as e:
-        await ctx.send(f"❌ An error occurred: {e}")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
-    if not ctx.guild.me.guild_permissions.ban_members:
-        await ctx.send("❌ I don't have permission to ban members!")
-        return
-    
-    if member == ctx.author:
-        await ctx.send("❌ You can't ban yourself!")
-        return
-    
-    if member == ctx.guild.me:
-        await ctx.send("❌ I can't ban myself!")
-        return
-    
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ You can't ban someone with equal or higher roles!")
-        return
-    
-    try:
-        await member.ban(reason=reason)
-        await ctx.send(f"✅ {member.mention} has been banned!\nReason: {reason}")
-    except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to ban this member!")
-    except Exception as e:
-        await ctx.send(f"❌ An error occurred: {e}")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def mute(ctx, member: discord.Member, duration: int = 10, *, reason="No reason provided"):
-    if not ctx.guild.me.guild_permissions.moderate_members:
-        await ctx.send("❌ I don't have permission to timeout members!")
-        return
-    
-    if member == ctx.author:
-        await ctx.send("❌ You can't mute yourself!")
-        return
-    
-    if member == ctx.guild.me:
-        await ctx.send("❌ I can't mute myself!")
-        return
-    
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ You can't mute someone with equal or higher roles!")
-        return
-    
-    if duration > 40320:
-        await ctx.send("❌ Maximum mute duration is 28 days (40320 minutes)!")
-        return
-    
-    try:
-        timeout_duration = discord.utils.utcnow() + datetime.timedelta(minutes=duration)
-        await member.timeout(timeout_duration, reason=reason)
-        await ctx.send(f"✅ {member.mention} has been muted for {duration} minutes!\nReason: {reason}")
-    except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to timeout this member!")
-    except Exception as e:
-        await ctx.send(f"❌ An error occurred: {e}")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def unmute(ctx, member: discord.Member, *, reason="No reason provided"):
-    if not ctx.guild.me.guild_permissions.moderate_members:
-        await ctx.send("❌ I don't have permission to unmute members!")
-        return
-    
-    if member == ctx.author:
-        await ctx.send("❌ You can't unmute yourself!")
-        return
-    
-    if member == ctx.guild.me:
-        await ctx.send("❌ I can't unmute myself!")
-        return
-    
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ You can't unmute someone with equal or higher roles!")
-        return
-    
-    try:
-        await member.timeout(None, reason=reason)
-        await ctx.send(f"✅ {member.mention} has been unmuted!\nReason: {reason}")
-    except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to unmute this member!")
-    except Exception as e:
-        await ctx.send(f"❌ An error occurred: {e}")
+        await ctx.send("❌ Invalid action! Use: `add`, `remove`, `list`, or `reset`")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -548,7 +564,7 @@ async def help(ctx, *, command_name=None):
         command_name = command_name.lower()
         
         # Check permissions for admin commands
-        admin_commands = ["broadcast", "kick", "ban", "mute", "unmute", "purge"]
+        admin_commands = ["broadcast", "kick", "ban", "mute", "unmute", "purge", "lock", "unlock", "filter"]
         if command_name in admin_commands and not ctx.author.guild_permissions.administrator:
             await ctx.send(f"❌ You don't have permission to use the `{command_name}` command!")
             return
@@ -626,6 +642,16 @@ async def help(ctx, *, command_name=None):
                 "usage": "`bread purge [amount]`\n`/purge limit:<number>`",
                 "example": "`bread purge 50`"
             },
+            "lock": {
+                "description": "Lock a channel to prevent members from sending messages (Admin only)",
+                "usage": "`bread lock [#channel] [reason]`\n`/lock channel:<channel> reason:<text>`",
+                "example": "`bread lock #general Maintenance`"
+            },
+            "unlock": {
+                "description": "Unlock a channel to allow members to send messages (Admin only)",
+                "usage": "`bread unlock [#channel] [reason]`\n`/unlock channel:<channel> reason:<text>`",
+                "example": "`bread unlock #general All done!`"
+            },
             "me": {
                 "description": "Show your Discord and server information",
                 "usage": "`bread me`\n`/me`",
@@ -635,6 +661,11 @@ async def help(ctx, *, command_name=None):
                 "description": "Show bot commands and get help",
                 "usage": "`bread help [command]`\n`/help command:<name>`",
                 "example": "`bread help broadcast`"
+            },
+            "filter": {
+                "description": "Manage the chat filter (Admin only)",
+                "usage": "`bread filter <action> [word]`\n`/filter action:<add/remove/list/reset> word:<text>`",
+                "example": "`bread filter add badword`\n`bread filter list`\n`bread filter reset`"
             }
         }
         
@@ -669,7 +700,7 @@ async def help(ctx, *, command_name=None):
     # Slash Commands
     embed.add_field(
         name="⚡ Slash Commands",
-        value="`/test` - Test command\n`/ping` - Check bot response\n`/hello` - Say hello\n`/cointoss` - Flip a coin\n`/help` - Show commands\n`/me` - Your info",
+        value="`/test` - Test command\n`/ping` - Check bot response\n`/hello` - Say hello\n`/coin_toss` - Flip a coin\n`/help` - Show commands\n`/me` - Your info",
         inline=False
     )
     
@@ -681,16 +712,16 @@ async def help(ctx, *, command_name=None):
     )
     
     # Only show moderation commands if user has administrator permissions
-    if ctx.author.guild_permissions.administrator:
+    if ctx.author.guild_permissions.moderate_members:
         embed.add_field(
             name="⚡ Moderation Slash Commands",
-            value="`/kick` - Kick a member\n`/ban` - Ban a member\n`/mute` - Mute a member\n`/unmute` - Unmute a member\n`/broadcast` - Broadcast message\n`/purge` - Delete messages",
+            value="`/kick` - Kick a member\n`/ban` - Ban a member\n`/mute` - Mute a member\n`/unmute` - Unmute a member\n`/broadcast` - Broadcast message\n`/purge` - Delete messages\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/filter` - Manage chat filter",
             inline=False
         )
         
         embed.add_field(
             name="🔨 Moderation Prefix Commands (bread)",
-            value="`bread kick` - Kick member\n`bread ban` - Ban member\n`bread mute` - Mute member\n`bread unmute` - Unmute member\n`bread broadcast` - Broadcast message\n`bread purge` - Delete messages",
+            value="`bread kick` - Kick member\n`bread ban` - Ban member\n`bread mute` - Mute member\n`bread unmute` - Unmute member\n`bread broadcast` - Broadcast message\n`bread purge` - Delete messages\n`bread lock` - Lock channel\n`bread unlock` - Unlock channel",
             inline=False
         )
     
@@ -778,7 +809,6 @@ async def me(ctx):
     await ctx.send(embed=embed)
 
 @bot.tree.command(name="help", description="Show bot commands and usage")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 @app_commands.describe(command="Specific command to get help for")
 async def slash_help(interaction: discord.Interaction, command: str = None):
     if command:
@@ -925,7 +955,6 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="me", description="Show your Discord and server information")
-@app_commands.guilds(discord.Object(id=GUILD_ID))
 async def slash_me(interaction: discord.Interaction):
     user = interaction.user
     member = interaction.guild.get_member(user.id)
@@ -1005,21 +1034,18 @@ async def slash_me(interaction: discord.Interaction):
 
 @bot.command()
 async def status(ctx):
-    # Check if user is the bot owner
-    if ctx.author.id != BOT_OWNER_ID:
-        await ctx.send("❌ Only the bot owner can use this command!")
-        return
-    
+
     embed = discord.Embed(
         title="🤖 Bot Status Report",
         color=0x00ff00,
         timestamp=discord.utils.utcnow()
     )
     
-    # Bot basic info
+    # Bot basic info with actual uptime
+    uptime_text = discord.utils.format_dt(bot_start_time, 'R') if bot_start_time else "Unknown"
     embed.add_field(
         name="🔧 Bot Info",
-        value=f"**Status:** Online ✅\n**Latency:** {round(bot.latency * 1000)}ms\n**Uptime:** {discord.utils.format_dt(bot.user.created_at, 'R')}",
+        value=f"**Status:** Online ✅\n**Latency:** {round(bot.latency * 1000)}ms\n**Online Since:** {uptime_text}",
         inline=False
     )
     
@@ -1053,65 +1079,148 @@ async def status(ctx):
     embed.set_footer(text=f"Requested by {ctx.author.name}")
     await ctx.send(embed=embed)
 
-@bot.command()
-async def shutdown(ctx):
-    if ctx.author.id != BOT_OWNER_ID:
-        await ctx.send("❌ Only the bot owner can use this command!")
+@bot.tree.command(name="lock", description="Lock a channel to prevent members from sending messages")
+@app_commands.describe(channel="Channel to lock (current channel if not specified)", reason="Reason for locking")
+async def lock(interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("❌ You need Manage Channels permissions to use this command!", ephemeral=True)
         return
     
-    user_id = ctx.author.id
+    if not interaction.guild.me.guild_permissions.manage_channels:
+        await interaction.response.send_message("❌ I don't have permission to manage channels!", ephemeral=True)
+        return
     
-    if user_id not in shutdown_confirmations:
-        shutdown_confirmations[user_id] = True
-        embed = discord.Embed(
-            title="⚠️ Shutdown Confirmation",
-            description="Are you sure you want to shut down the bot?\n\n**Type `bread shutdown` again within 30 seconds to confirm.**",
-            color=0xff9900
-        )
-        embed.add_field(
-            name="⏰ Timeout", 
-            value="This confirmation will expire in 30 seconds.",
-            inline=False
-        )
-        await ctx.send(embed=embed)
-        
-        await asyncio.sleep(30)
-        if user_id in shutdown_confirmations:
-            del shutdown_confirmations[user_id]
-            await ctx.send("🕐 Shutdown confirmation expired.")
+    # Use current channel if none specified
+    target_channel = channel or interaction.channel
     
-    else:
-        del shutdown_confirmations[user_id]
+    try:
+        # Get @everyone role
+        everyone_role = interaction.guild.default_role
         
-        # Create shutdown flag
-        with open('shutdown_flag.txt', 'w') as f:
-            f.write('Bot manually shut down')
+        # Remove send messages permission for @everyone
+        await target_channel.set_permissions(everyone_role, send_messages=False, reason=reason)
         
         embed = discord.Embed(
-            title="🔴 Bot Shutting Down",
-            description="Bot is shutting down and will stay offline until manually restarted... Goodbye! 👋",
+            title="🔒 Channel Locked",
+            description=f"{target_channel.mention} has been locked!",
             color=0xff0000
         )
-        embed.set_footer(text=f"Shutdown initiated by {ctx.author.name}")
+        embed.add_field(name="Reason", value=reason, inline=False)
+        embed.add_field(name="Locked by", value=interaction.user.mention, inline=True)
+        
+        await interaction.response.send_message(embed=embed)
+        
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to modify this channel!", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
+
+@bot.tree.command(name="unlock", description="Unlock a channel to allow members to send messages")
+@app_commands.describe(channel="Channel to unlock (current channel if not specified)", reason="Reason for unlocking")
+async def unlock(interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("❌ You need Manage Channels permissions to use this command!", ephemeral=True)
+        return
+    
+    if not interaction.guild.me.guild_permissions.manage_channels:
+        await interaction.response.send_message("❌ I don't have permission to manage channels!", ephemeral=True)
+        return
+    
+    # Use current channel if none specified
+    target_channel = channel or interaction.channel
+    
+    try:
+        # Get @everyone role
+        everyone_role = interaction.guild.default_role
+        
+        # Restore send messages permission for @everyone (set to None = inherit)
+        await target_channel.set_permissions(everyone_role, send_messages=None, reason=reason)
+        
+        embed = discord.Embed(
+            title="🔓 Channel Unlocked",
+            description=f"{target_channel.mention} has been unlocked!",
+            color=0x00ff00
+        )
+        embed.add_field(name="Reason", value=reason, inline=False)
+        embed.add_field(name="Unlocked by", value=interaction.user.mention, inline=True)
+        
+        await interaction.response.send_message(embed=embed)
+        
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to modify this channel!", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def lock(ctx, channel: discord.TextChannel = None, *, reason="No reason provided"):
+    if not ctx.guild.me.guild_permissions.manage_channels:
+        await ctx.send("❌ I don't have permission to manage channels!")
+        return
+    
+    target_channel = channel or ctx.channel
+    
+    try:
+        everyone_role = ctx.guild.default_role
+        await target_channel.set_permissions(everyone_role, send_messages=False, reason=reason)
+        
+        embed = discord.Embed(
+            title="🔒 Channel Locked",
+            description=f"{target_channel.mention} has been locked!",
+            color=0xff0000
+        )
+        embed.add_field(name="Reason", value=reason, inline=False)
+        embed.add_field(name="Locked by", value=ctx.author.mention, inline=True)
         
         await ctx.send(embed=embed)
-        await asyncio.sleep(2)
-        await bot.close()
+        
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to modify this channel!")
+    except Exception as e:
+        await ctx.send(f"❌ An error occurred: {e}")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def unlock(ctx, channel: discord.TextChannel = None, *, reason="No reason provided"):
+    if not ctx.guild.me.guild_permissions.manage_channels:
+        await ctx.send("❌ I don't have permission to manage channels!")
+        return
+    
+    target_channel = channel or ctx.channel
+    
+    try:
+        everyone_role = ctx.guild.default_role
+        await target_channel.set_permissions(everyone_role, send_messages=None, reason=reason)
+        
+        embed = discord.Embed(
+            title="🔓 Channel Unlocked",
+            description=f"{target_channel.mention} has been unlocked!",
+            color=0x00ff00
+        )
+        embed.add_field(name="Reason", value=reason, inline=False)
+        embed.add_field(name="Unlocked by", value=ctx.author.mention, inline=True)
+        
+        await ctx.send(embed=embed)
+        
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to modify this channel!")
+    except Exception as e:
+        await ctx.send(f"❌ An error occurred: {e}")
 
 @bot.command()
 async def restart(ctx):
     if ctx.author.id != BOT_OWNER_ID:
         await ctx.send("❌ Only the bot owner can use this command!")
         return
-    
-    # Remove shutdown flag
-    if os.path.exists('shutdown_flag.txt'):
-        os.remove('shutdown_flag.txt')
-    
-    await ctx.send("🔄 Bot will restart shortly...")
-    await asyncio.sleep(2)
-    await bot.close()
-
+    if ctx.author.id == BOT_OWNER_ID:
+        await ctx.send("Are you sure you want to restart?")
+        await asyncio.sleep(5)
+        if not message.content == "yes" or "y" or "Yes" or "Y":
+            await ctx.send("Restart cancelled.")
+            return
+        else:
+            await ctx.send("Restarting...")
+            await bot.close()
 # ▶️ Start the bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
 
