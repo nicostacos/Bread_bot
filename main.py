@@ -283,6 +283,12 @@ async def broadcast(interaction: discord.Interaction, message: str, ping_everyon
 # 🎉 When bot is ready
 @bot.event
 async def on_ready():
+    # Check if shutdown flag exists
+    if os.path.exists('shutdown_flag.txt'):
+        print("Shutdown flag detected. Bot will not start.")
+        await bot.close()
+        return
+    
     print(f"We are ready to go in, {bot.user.name}")
     
     try:
@@ -1049,16 +1055,13 @@ async def status(ctx):
 
 @bot.command()
 async def shutdown(ctx):
-    # Check if user is the bot owner
     if ctx.author.id != BOT_OWNER_ID:
         await ctx.send("❌ Only the bot owner can use this command!")
         return
     
     user_id = ctx.author.id
     
-    # Check if this is the first time or confirmation
     if user_id not in shutdown_confirmations:
-        # First time - ask for confirmation
         shutdown_confirmations[user_id] = True
         embed = discord.Embed(
             title="⚠️ Shutdown Confirmation",
@@ -1072,28 +1075,42 @@ async def shutdown(ctx):
         )
         await ctx.send(embed=embed)
         
-        # Remove confirmation after 30 seconds
         await asyncio.sleep(30)
         if user_id in shutdown_confirmations:
             del shutdown_confirmations[user_id]
             await ctx.send("🕐 Shutdown confirmation expired.")
     
     else:
-        # Second time - actually shutdown
         del shutdown_confirmations[user_id]
+        
+        # Create shutdown flag
+        with open('shutdown_flag.txt', 'w') as f:
+            f.write('Bot manually shut down')
         
         embed = discord.Embed(
             title="🔴 Bot Shutting Down",
-            description="Bot is shutting down... Goodbye! 👋",
+            description="Bot is shutting down and will stay offline until manually restarted... Goodbye! 👋",
             color=0xff0000
         )
         embed.set_footer(text=f"Shutdown initiated by {ctx.author.name}")
         
         await ctx.send(embed=embed)
-        
-        # Wait a moment then shutdown
         await asyncio.sleep(2)
         await bot.close()
+
+@bot.command()
+async def restart(ctx):
+    if ctx.author.id != BOT_OWNER_ID:
+        await ctx.send("❌ Only the bot owner can use this command!")
+        return
+    
+    # Remove shutdown flag
+    if os.path.exists('shutdown_flag.txt'):
+        os.remove('shutdown_flag.txt')
+    
+    await ctx.send("🔄 Bot will restart shortly...")
+    await asyncio.sleep(2)
+    await bot.close()
 
 # ▶️ Start the bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
