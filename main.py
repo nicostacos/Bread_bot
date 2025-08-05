@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import os
 import random
 import datetime
+import asyncio
 
 #  Load token from .env file
 load_dotenv()
@@ -27,6 +28,9 @@ bot = commands.Bot(command_prefix='bread ', intents=intents, help_command=None)
 secret_role = "bot test"
 GUILD_ID = 1247215187799572643
 BOT_OWNER_ID = 993607806915706891  # Replace with your actual Discord user ID
+
+# Add this at the top with other variables
+shutdown_confirmations = {}
 
 # ⚡ Slash Commands
 @bot.tree.command(name="test", description="A simple test command")
@@ -1043,9 +1047,55 @@ async def status(ctx):
     embed.set_footer(text=f"Requested by {ctx.author.name}")
     await ctx.send(embed=embed)
 
-# ▶️ Start the bot
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+@bot.command()
+async def shutdown(ctx):
+    # Check if user is the bot owner
+    if ctx.author.id != BOT_OWNER_ID:
+        await ctx.send("❌ Only the bot owner can use this command!")
+        return
+    
+    user_id = ctx.author.id
+    
+    # Check if this is the first time or confirmation
+    if user_id not in shutdown_confirmations:
+        # First time - ask for confirmation
+        shutdown_confirmations[user_id] = True
+        embed = discord.Embed(
+            title="⚠️ Shutdown Confirmation",
+            description="Are you sure you want to shut down the bot?\n\n**Type `bread shutdown` again within 30 seconds to confirm.**",
+            color=0xff9900
+        )
+        embed.add_field(
+            name="⏰ Timeout", 
+            value="This confirmation will expire in 30 seconds.",
+            inline=False
+        )
+        await ctx.send(embed=embed)
+        
+        # Remove confirmation after 30 seconds
+        await asyncio.sleep(30)
+        if user_id in shutdown_confirmations:
+            del shutdown_confirmations[user_id]
+            await ctx.send("🕐 Shutdown confirmation expired.")
+    
+    else:
+        # Second time - actually shutdown
+        del shutdown_confirmations[user_id]
+        
+        embed = discord.Embed(
+            title="🔴 Bot Shutting Down",
+            description="Bot is shutting down... Goodbye! 👋",
+            color=0xff0000
+        )
+        embed.set_footer(text=f"Shutdown initiated by {ctx.author.name}")
+        
+        await ctx.send(embed=embed)
+        
+        # Wait a moment then shutdown
+        await asyncio.sleep(2)
+        await bot.close()
 
 # ▶️ Start the bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
