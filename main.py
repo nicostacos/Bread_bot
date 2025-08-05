@@ -270,9 +270,8 @@ async def broadcast(interaction: discord.Interaction, message: str, ping_everyon
     except Exception as e:
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
-# ___________________________________________________________________________________________________________________________________________________________________
-# ___________________________________________________________________________________________________________________________________________________________________
-# ___________________________________________________________________________________________________________________________________________________________________
+
+# 🎉 When bot is ready
 @bot.event
 async def on_ready():
     global bot_start_time
@@ -289,42 +288,6 @@ async def on_ready():
 @bot.event
 async def on_member_join(member):
     await member.send(f"Welcome to the server {member.name}")
-
-@bot.event
-async def on_message(message):
-    # Ignore bot messages
-    if message.author == bot.user:
-        return
-    
-    # Check if message is in DMs and contains commands
-    if isinstance(message.channel, discord.DMChannel):
-        if message.content.startswith('bread ') or message.content.startswith('/'):
-            await message.channel.send("Hello! You cannot use prefix commands in DMs, use slash commands instead.")
-            return
-    
-    # Check for filtered words (only in guilds)
-    if message.guild:
-        message_lower = message.content.lower()
-        for word in custom_filter_words:
-            if word in message_lower:
-                try:
-                    await message.delete()
-                    
-                    embed = discord.Embed(
-                        title="🚫 Message Filtered",
-                        description=f"{message.author.mention} Bad boy don't use that word!",
-                        color=0xff0000
-                    )
-                    embed.set_footer(text="Message deleted by chat filter")
-                    
-                    await message.channel.send(embed=embed, delete_after=5)
-                    break
-                except discord.Forbidden:
-                    print(f"❌ No permission to delete message from {message.author}")
-                except Exception as e:
-                    print(f"❌ Error deleting message: {e}")
-
-    await bot.process_commands(message)
 
 @bot.tree.command(name="filter", description="Manage the chat filter")
 @app_commands.describe(
@@ -357,7 +320,7 @@ async def filter_command(interaction: discord.Interaction, action: str, word: st
         custom_filter_words.append(word)
         embed = discord.Embed(
             title="✅ Word Added to Filter",
-            description=f"Added `{word}` to the chat filter", ephemeral=True,
+            description=f"Added `{word}` to the chat filter",
             color=0x00ff00
         )
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
@@ -440,7 +403,7 @@ async def filter(ctx, action=None, *, word=None):
         custom_filter_words.append(word)
         embed = discord.Embed(
             title="✅ Word Added to Filter",
-            description=f"Added `{word}` to the chat filter",ephemeral=True,
+            description=f"Added `{word}` to the chat filter",
             color=0x00ff00
         )
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
@@ -454,13 +417,13 @@ async def filter(ctx, action=None, *, word=None):
         
         word = word.lower()
         if word not in custom_filter_words:
-            await ctx.send(f"❌ `{word}` is not in the filter!",ephemeral=True)
+            await ctx.send(f"❌ `{word}` is not in the filter!")
             return
         
         custom_filter_words.remove(word)
         embed = discord.Embed(
             title="✅ Word Removed from Filter",
-            description=f"Removed `{word}` from the chat filter",ephemeral=True,
+            description=f"Removed `{word}` from the chat filter",
             color=0xff9900
         )
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
@@ -1034,7 +997,10 @@ async def slash_me(interaction: discord.Interaction):
 
 @bot.command()
 async def status(ctx):
-
+    if ctx.author.id != BOT_OWNER_ID:
+        await ctx.send("❌ Only the bot owner can use this command!")
+        return
+    
     embed = discord.Embed(
         title="🤖 Bot Status Report",
         color=0x00ff00,
