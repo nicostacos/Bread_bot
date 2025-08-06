@@ -1,4 +1,4 @@
-
+import sys
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -8,6 +8,31 @@ import os
 import random
 import datetime
 import asyncio
+import threading
+from flask import Flask
+
+app = Flask(__name__)
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# Then start the Flask server in a separate thread
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.daemon = True
+flask_thread.start()
+
+@app.route('/')
+def home():
+    return "Bread Bot is running! 🍞"
+
+@app.route('/health')
+def health():
+    return {"status": "healthy", "bot": "online"}
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
 
 #  Load token from .env file
 load_dotenv()
@@ -23,6 +48,15 @@ intents.members = True
 
 # Create the bot instance
 bot = commands.Bot(command_prefix='bread ', intents=intents, help_command=None)
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    try:
+        await bot.tree.sync()
+        print("Slash commands synced!")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
 # Name of the secret role
 secret_role = "bot test"
@@ -270,8 +304,9 @@ async def broadcast(interaction: discord.Interaction, message: str, ping_everyon
     except Exception as e:
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
-
-# 🎉 When bot is ready
+# ___________________________________________________________________________________________________________________________________________________________________
+# ___________________________________________________________________________________________________________________________________________________________________
+# ___________________________________________________________________________________________________________________________________________________________________
 @bot.event
 async def on_ready():
     global bot_start_time
@@ -288,6 +323,42 @@ async def on_ready():
 @bot.event
 async def on_member_join(member):
     await member.send(f"Welcome to the server {member.name}")
+
+@bot.event
+async def on_message(message):
+    # Ignore bot messages
+    if message.author == bot.user:
+        return
+    
+    # Check if message is in DMs and contains commands
+    if isinstance(message.channel, discord.DMChannel):
+        if message.content.startswith('bread ') or message.content.startswith('/'):
+            await message.channel.send("Hello! You cannot use prefix commands in DMs, use slash commands instead.")
+            return
+    
+    # Check for filtered words (only in guilds)
+    if message.guild:
+        message_lower = message.content.lower()
+        for word in custom_filter_words:
+            if word in message_lower:
+                try:
+                    await message.delete()
+                    
+                    embed = discord.Embed(
+                        title="🚫 Message Filtered",
+                        description=f"{message.author.mention} Bad boy don't use that word!",
+                        color=0xff0000
+                    )
+                    embed.set_footer(text="Message deleted by chat filter")
+                    
+                    await message.channel.send(embed=embed, delete_after=5)
+                    break
+                except discord.Forbidden:
+                    print(f"❌ No permission to delete message from {message.author}")
+                except Exception as e:
+                    print(f"❌ Error deleting message: {e}")
+
+    await bot.process_commands(message)
 
 @bot.tree.command(name="filter", description="Manage the chat filter")
 @app_commands.describe(
@@ -320,7 +391,7 @@ async def filter_command(interaction: discord.Interaction, action: str, word: st
         custom_filter_words.append(word)
         embed = discord.Embed(
             title="✅ Word Added to Filter",
-            description=f"Added `{word}` to the chat filter",
+            description=f"Added `{word}` to the chat filter", ephemeral=True,
             color=0x00ff00
         )
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
@@ -403,7 +474,7 @@ async def filter(ctx, action=None, *, word=None):
         custom_filter_words.append(word)
         embed = discord.Embed(
             title="✅ Word Added to Filter",
-            description=f"Added `{word}` to the chat filter",
+            description=f"Added `{word}` to the chat filter",ephemeral=True,
             color=0x00ff00
         )
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
@@ -417,13 +488,13 @@ async def filter(ctx, action=None, *, word=None):
         
         word = word.lower()
         if word not in custom_filter_words:
-            await ctx.send(f"❌ `{word}` is not in the filter!")
+            await ctx.send(f"❌ `{word}` is not in the filter!",ephemeral=True)
             return
         
         custom_filter_words.remove(word)
         embed = discord.Embed(
             title="✅ Word Removed from Filter",
-            description=f"Removed `{word}` from the chat filter",
+            description=f"Removed `{word}` from the chat filter",ephemeral=True,
             color=0xff9900
         )
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
@@ -468,34 +539,40 @@ async def filter(ctx, action=None, *, word=None):
     
     else:
         await ctx.send("❌ Invalid action! Use: `add`, `remove`, `list`, or `reset`")
+        return
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def broadcast(ctx, *, message):
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("No one wants to hear you talking")
+        return
+
     if not ctx.guild.me.guild_permissions.send_messages:
         await ctx.send("❌ I don't have permission to send messages!")
         return
-    
+
     try:
         await ctx.message.delete()
-        
+
         # Check if message starts with "ping" to enable @everyone
         if message.lower().startswith("ping "):
             ping_everyone = True
             message = message[5:]  # Remove "ping" from the start
         else:
             ping_everyone = False
-        
+
         channel_count = 0
         broadcast_message = f"@everyone {message}" if ping_everyone else message
-        
+
         for channel in ctx.guild.text_channels:
             try:
                 await channel.send(broadcast_message)
                 channel_count += 1
             except discord.Forbidden:
                 continue
-        
+
         ping_status = "with @everyone ping" if ping_everyone else "without ping"
         await ctx.send(f"✅ Broadcasted message to {channel_count} channels {ping_status}!", delete_after=5)
     except Exception as e:
@@ -887,7 +964,7 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
     # Slash Commands
     embed.add_field(
         name="⚡ Slash Commands",
-        value="`/test` - Test command\n`/ping` - Check bot response\n`/hello` - Say hello\n`/cointoss` - Flip a coin",
+        value="`/test` - Test command\n`/ping` - Check bot response\n`/hello` - Say hello\n`/coin toss` - Flip a coin",
         inline=False
     )
     
@@ -997,10 +1074,7 @@ async def slash_me(interaction: discord.Interaction):
 
 @bot.command()
 async def status(ctx):
-    if ctx.author.id != BOT_OWNER_ID:
-        await ctx.send("❌ Only the bot owner can use this command!")
-        return
-    
+
     embed = discord.Embed(
         title="🤖 Bot Status Report",
         color=0x00ff00,
@@ -1178,16 +1252,26 @@ async def restart(ctx):
     if ctx.author.id != BOT_OWNER_ID:
         await ctx.send("❌ Only the bot owner can use this command!")
         return
-    if ctx.author.id == BOT_OWNER_ID:
-        await ctx.send("Are you sure you want to restart?")
-        await asyncio.sleep(5)
-        if not message.content == "yes" or "y" or "Yes" or "Y":
-            await ctx.send("Restart cancelled.")
-            return
-        else:
-            await ctx.send("Restarting...")
-            await bot.close()
+
+    await ctx.send("Are you sure you want to restart? Reply with `yes` or `y` within 15 seconds.")
+
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel and m.content.lower() in ["yes", "y"]
+
+    try:
+        msg = await bot.wait_for("message", timeout=15.0, check=check)
+        await ctx.send("Restarting...")
+        await bot.close()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except asyncio.TimeoutError:
+        await ctx.send("Restart cancelled (no confirmation received).")
+# ▶️ Start the Flask server in a separate thread
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.daemon = True
+flask_thread.start()
+
 # ▶️ Start the bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
 
