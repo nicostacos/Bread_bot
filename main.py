@@ -58,10 +58,11 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
-# Name of the secret role
+# Name of the secret role this is test
 secret_role = "bot test"
 GUILD_ID = 1247215187799572643
 BOT_OWNER_ID = 993607806915706891
+WELCOME_CHANNEL_ID = None
 
 # Add this at the top with other variables
 bot_start_time = None
@@ -304,6 +305,14 @@ async def broadcast(interaction: discord.Interaction, message: str, ping_everyon
     except Exception as e:
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
 
+@bot.tree.command(name="setwelcome", description="Set the welcome channel for new members")
+@app_commands.describe(channel="The channel to send welcome messages in")
+@commands.has_permissions(administrator=True)
+async def set_welcome_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    global WELCOME_CHANNEL_ID
+    WELCOME_CHANNEL_ID = channel.id
+    await interaction.response.send_message(f"✅ Welcome channel set to {channel.mention}", ephemeral=True)
+
 # ___________________________________________________________________________________________________________________________________________________________________
 # ___________________________________________________________________________________________________________________________________________________________________
 # ___________________________________________________________________________________________________________________________________________________________________
@@ -322,7 +331,24 @@ async def on_ready():
  # new members
 @bot.event
 async def on_member_join(member):
-    await member.send(f"Welcome to the server {member.name}")
+    # Send DM
+    try:
+        await member.send(f"Welcome to the server {member.name}")
+    except Exception as e:
+        print(f"Failed to send DM to {member.name}: {e}")
+
+    # Send embed to welcome channel if set
+    if WELCOME_CHANNEL_ID:
+        channel = member.guild.get_channel(WELCOME_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(
+                title="Welcome!",
+                description=f"{member.mention} has joined the server!",
+                color=discord.Color.green()
+            )
+            if member.avatar:
+                embed.set_thumbnail(url=member.avatar.url)
+            await channel.send(embed=embed)
 
 @bot.event
 async def on_message(message):
@@ -604,8 +630,8 @@ async def help(ctx, *, command_name=None):
         command_name = command_name.lower()
         
         # Check permissions for admin commands
-        admin_commands = ["broadcast", "kick", "ban", "mute", "unmute", "purge", "lock", "unlock", "filter"]
-        if command_name in admin_commands and not ctx.author.guild_permissions.administrator:
+        admin_commands = ["broadcast", "kick", "ban", "mute", "unmute", "purge", "lock", "unlock", "filter", "setwelcome"]
+        if command_name in admin_commands and not ctx.author.guild_permissions.moderate_members or ctx.author.guild_permissions.manage_channels or ctx.author.guild_permissions.manage_roles or ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator:
             await ctx.send(f"❌ You don't have permission to use the `{command_name}` command!")
             return
         
@@ -621,6 +647,16 @@ async def help(ctx, *, command_name=None):
                 "description": "Say hello to the bot",
                 "usage": "`bread hello`",
                 "example": "`bread hello`"
+            },
+            "me": {
+                "description": "Show your Discord and server information",
+                "usage": "`bread me`\n`/me`",
+                "example": "`bread me`"
+            },
+            "help": {
+                "description": "Show bot commands and get help",
+                "usage": "`bread help [command]`\n`/help command:<name>`",
+                "example": "`bread help poll`"
             },
             "assign": {
                 "description": "Get the bot test role",
@@ -692,20 +728,15 @@ async def help(ctx, *, command_name=None):
                 "usage": "`bread unlock [#channel] [reason]`\n`/unlock channel:<channel> reason:<text>`",
                 "example": "`bread unlock #general All done!`"
             },
-            "me": {
-                "description": "Show your Discord and server information",
-                "usage": "`bread me`\n`/me`",
-                "example": "`bread me`"
-            },
-            "help": {
-                "description": "Show bot commands and get help",
-                "usage": "`bread help [command]`\n`/help command:<name>`",
-                "example": "`bread help broadcast`"
-            },
             "filter": {
                 "description": "Manage the chat filter (Admin only)",
                 "usage": "`bread filter <action> [word]`\n`/filter action:<add/remove/list/reset> word:<text>`",
                 "example": "`bread filter add badword`\n`bread filter list`\n`bread filter reset`"
+            },
+            "setwelcome": {
+                "description": "Set the welcome channel for new members (Admin only)",
+                "usage": "`bread setwelcome <#channel>`\n`/setwelcome channel:<channel>`",
+                "example": "`bread setwelcome #general`"
             }
         }
         
@@ -752,16 +783,16 @@ async def help(ctx, *, command_name=None):
     )
     
     # Only show moderation commands if user has administrator permissions
-    if ctx.author.guild_permissions.moderate_members:
+    if ctx.author.guild_permissions.moderate_members or ctx.author.guild_permissions.manage_channels or ctx.author.guild_permissions.manage_roles or ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator:
         embed.add_field(
             name="⚡ Moderation Slash Commands",
-            value="`/kick` - Kick a member\n`/ban` - Ban a member\n`/mute` - Mute a member\n`/unmute` - Unmute a member\n`/broadcast` - Broadcast message\n`/purge` - Delete messages\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/filter` - Manage chat filter",
+            value="`/kick` - Kick a member\n`/ban` - Ban a member  - \n`/unban` - Unban a member\n `/mute` - Mute a member\n`/unmute` - Unmute a member\n`/broadcast` - Broadcast message\n`/purge` - Delete messages\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/filter` - Manage chat filter \n`/setwelcome` - Set welcome channel",
             inline=False
         )
         
         embed.add_field(
             name="🔨 Moderation Prefix Commands (bread)",
-            value="`bread kick` - Kick member\n`bread ban` - Ban member\n`bread mute` - Mute member\n`bread unmute` - Unmute member\n`bread broadcast` - Broadcast message\n`bread purge` - Delete messages\n`bread lock` - Lock channel\n`bread unlock` - Unlock channel",
+            value="`bread kick` - Kick member\n`bread ban` - Ban member\n`bread unban` - Unban member\n`bread mute` - Mute member\n`bread unmute` - Unmute member\n`bread broadcast` - Broadcast message\n`bread purge` - Delete messages\n`bread lock` - Lock channel\n`bread unlock` - Unlock channel\n`bread filter` - Manage chat filter\n`bread setwelcome` - Set welcome channel",
             inline=False
         )
     
@@ -854,8 +885,8 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
     if command:
         command = command.lower()
         
-        admin_commands = ["broadcast", "kick", "ban", "mute", "unmute", "purge"]
-        if command in admin_commands and not interaction.user.guild_permissions.administrator:
+        admin_commands = ["broadcast", "kick", "ban", "mute", "unmute", "purge", "lock", "unlock", "filter", "setwelcome"]
+        if command in admin_commands and not interaction.user.guild_permissions.moderate_members or ctx.author.guild_permissions.manage_channels or ctx.author.guild_permissions.manage_roles or ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator:
             await interaction.response.send_message(f"❌ You don't have permission to use the `{command}` command!", ephemeral=True)
             return
         
@@ -870,6 +901,16 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
                 "description": "Say hello to the bot",
                 "usage": "`bread hello`",
                 "example": "`bread hello`"
+            },
+            "status": {
+                "description": "Show bot status and statistics",
+                "usage": "`bread status`\n`/status`",
+                "example": "`bread status`"
+            },
+            "me": {
+                "description": "Show your Discord and server information",
+                "usage": "`bread me`\n`/me`",
+                "example": "`bread me`"
             },
             "assign": {
                 "description": "Get the bot test role",
@@ -930,6 +971,26 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
                 "description": "Delete messages from current channel (Admin only)",
                 "usage": "`bread purge [amount]`\n`/purge limit:<number>`",
                 "example": "`bread purge 50`"
+            },
+            "lock": {
+                "description": "Lock a channel to prevent members from sending messages (Admin only)",
+                "usage": "`bread lock [#channel] [reason]`\n`/lock channel:<channel> reason:<text>`",
+                "example": "`bread lock #general Maintenance`"
+            },
+            "unlock": {
+                "description": "Unlock a channel to allow members to send messages (Admin only)",
+                "usage": "`bread unlock [#channel] [reason]`\n`/unlock channel:<channel> reason:<text>`",
+                "example": "`bread unlock #general All done!`"
+            },
+            "filter": {
+                "description": "Manage the chat filter (Admin only)",
+                "usage": "`bread filter <action> [word]`\n`/filter action:<add/remove/list/reset> word:<text>`",
+                "example": "`bread filter add badword`\n`bread filter list`\n`bread filter reset`"
+            },
+            "setwelcome": {
+                "description": "Set the welcome channel for new members (Admin only)",
+                "usage": "`bread setwelcome <#channel>`\n`/setwelcome channel:<channel>`",
+                "example": "`bread setwelcome #general`"
             }
         }
         
@@ -976,16 +1037,16 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
     )
     
     # Only show moderation commands if user has administrator permissions
-    if interaction.user.guild_permissions.administrator:
+    if interaction.user.guild_permissions.manage_messages or interaction.user.guild_permissions.manage_channels or interaction.user.guild_permissions.manage_roles or interaction.user.guild_permissions.moderate_members or interaction.user.guild_permissions.administrator:
         embed.add_field(
             name="⚡ Moderation Slash Commands",
-            value="`/kick` - Kick a member\n`/ban` - Ban a member\n`/mute` - Mute a member\n`/unmute` - Unmute a member\n`/broadcast` - Broadcast message\n`/purge` - Delete messages",
+            value="`/kick` - Kick a member\n`/ban` - Ban a member  - \n`/unban` - Unban a member\n `/mute` - Mute a member\n`/unmute` - Unmute a member\n`/broadcast` - Broadcast message\n`/purge` - Delete messages\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/filter` - Manage chat filter \n`/setwelcome` - Set welcome channel",
             inline=False
         )
         
         embed.add_field(
             name="🔨 Moderation Prefix Commands (bread)",
-            value="`bread kick` - Kick member\n`bread ban` - Ban member\n`bread mute` - Mute member\n`bread unmute` - Unmute member\n`bread broadcast` - Broadcast message\n`bread purge` - Delete messages",
+            value="`bread kick` - Kick member\n`bread ban` - Ban member\n `bread unban` - Unban member\n`bread mute` - Mute member\n`bread unmute` - Unmute member\n`bread broadcast` - Broadcast message\n`bread purge` - Delete messages\n`bread lock` - Lock channel\n`bread unlock` - Unlock channel\n`bread filter` - Manage chat filter\n`bread setwelcome` - Set welcome channel",
             inline=False
         )
     
