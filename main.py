@@ -10,7 +10,8 @@ import datetime
 import asyncio
 import threading
 from flask import Flask
-
+import aiohttp
+import asyncio
 
 LOG_CHANNEL_ID = None
 
@@ -58,6 +59,52 @@ intents.members = True
 # Create the bot instance
 bot = commands.Bot(command_prefix='bread ', intents=intents, help_command=None)
 
+
+
+TIME_ID = 1413747681163087893
+PING_URL = "https://bread-bot-8rqr.onrender.com/"
+
+async def keep_alive_task():
+    await bot.wait_until_ready()
+    channel = bot.get_channel(TIME_ID)
+
+    if channel is None:
+        print(f"❌ Could not find channel with ID {TIME_ID}")
+        return
+
+    while not bot.is_closed():
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(PING_URL) as resp:
+                    status = resp.status
+            embed = discord.Embed(
+                title="🌐 Keep Alive Ping",
+                description=f"Pinged `{PING_URL}`",
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.add_field(name="Status", value=f"{status}", inline=True)
+            await channel.send(embed=embed)
+            print(f"[KeepAlive] Sent ping with status {status}")
+        except Exception as e:
+            embed = discord.Embed(
+                title="⚠️ Keep Alive Error",
+                description=f"Failed to ping `{PING_URL}`",
+                color=discord.Color.red(),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.add_field(name="Error", value=str(e), inline=False)
+            await channel.send(embed=embed)
+            print(f"[KeepAlive] Error: {e}")
+
+        await asyncio.sleep(300)  # every 5 minutes
+
+
+# ✅ attach setup_hook to bot before bot.run()
+async def setup_hook():
+    bot.add_bg_task = asyncio.create_task(keep_alive_task())
+
+bot.setup_hook = setup_hook
 
 @bot.event
 async def on_ready():
