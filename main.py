@@ -19,8 +19,8 @@ app = Flask(__name__)
 
 
 def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
 
 # Then start the Flask server in a separate thread
@@ -124,7 +124,7 @@ WELCOME_CHANNEL_ID = None
 
 # Add this at the top with other variables
 bot_start_time = None
-default_filter_words = ["fuck", "shit", "bitch", "nigger", "nigga", "niggers", "niggas", "nigguh", "nigguhs"]
+default_filter_words = ["fuck", "shit", "bitch", "nigger", "nigga", "niggers", "niggas", "nigguh", "nigguhs", "dick","gay"]
 global custom_filter_words
 custom_filter_words = default_filter_words.copy()
 
