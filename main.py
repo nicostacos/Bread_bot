@@ -1175,7 +1175,7 @@ async def help(ctx, *, command_name=None):
     embed = discord.Embed(
         title="🍞 Bread Bot - Command Reference",
         description="**Available Commands** • Use `bread help <command>` for detailed info",
-        color=0x3498db
+        color=0x00ff00
     )
     
     # Add bot avatar
@@ -1259,7 +1259,7 @@ async def help(ctx, *, command_name=None):
         permissions_note = " • 🔒 Some commands hidden (need permissions)"
     
     embed.set_footer(
-        text=f"Use 'bread help <command>' for detailed info{permissions_note} • Bot by Windsurf"
+        text=f"Use 'bread help <command>' for detailed info{permissions_note}"
     )
     
     await ctx.send(embed=embed)
