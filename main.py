@@ -1471,7 +1471,7 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
                 inline=False
             )
         
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
         return
     
     # Main help command (no specific command requested)
