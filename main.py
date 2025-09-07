@@ -59,10 +59,9 @@ intents.members = True
 # Create the bot instance
 bot = commands.Bot(command_prefix='bread ', intents=intents, help_command=None)
 
-
-
 TIME_ID = 1413747681163087893
 PING_URL = "https://bread-bot-8rqr.onrender.com/"
+
 
 async def keep_alive_task():
     await bot.wait_until_ready()
@@ -104,16 +103,26 @@ async def keep_alive_task():
 async def setup_hook():
     bot.add_bg_task = asyncio.create_task(keep_alive_task())
 
+
 bot.setup_hook = setup_hook
+
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f'We have logged in as {bot.user} (ID: {bot.user.id})')
+    print('------')
     try:
-        await bot.tree.sync()
-        print("Slash commands synced!")
+        synced = await bot.tree.sync()  # global sync
+        print(f"🌍 Synced {len(synced)} global command(s)")
+
+        if len(synced) == 0:
+            print("⚠️ No global commands were synced. "
+                  "Remember: global slash commands may take up to 1 hour to appear for everyone.")
+        else:
+            print("✅ Global commands registered. "
+                  "It may take up to 1 hour before all users see them.")
     except Exception as e:
-        print(f"Failed to sync commands: {e}")
+        print(f"❌ Failed to sync commands: {e}")
 
 
 # Name of the secret role this is test
@@ -124,7 +133,8 @@ WELCOME_CHANNEL_ID = None
 
 # Add this at the top with other variables
 bot_start_time = None
-default_filter_words = ["fuck", "shit", "bitch", "nigger", "nigga", "niggers", "niggas", "nigguh", "nigguhs", "dick","gay"]
+default_filter_words = ["fuck", "shit", "bitch", "nigger", "nigga", "niggers", "niggas", "nigguh", "nigguhs", "dick",
+                        "gay"]
 global custom_filter_words
 custom_filter_words = default_filter_words.copy()
 
@@ -201,10 +211,10 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
 
         # Kick the user
         await member.kick(reason=f"{reason} (kicked by {ctx.author})")
-        
+
         # Send confirmation message
         await ctx.send(f"✅ {member.mention} has been kicked!\nReason: {reason}")
-        
+
         # Log the kick
         await send_mod_log(
             guild=ctx.guild,
@@ -219,7 +229,7 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
             ],
             thumbnail=member.avatar.url if member.avatar else None
         )
-                
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to kick this member!")
     except Exception as e:
@@ -276,10 +286,10 @@ async def kick_slash(interaction: discord.Interaction, member: discord.Member, r
 
         # Kick the user
         await member.kick(reason=f"{reason} (kicked by {interaction.user})")
-        
+
         # Send confirmation message
         await interaction.response.send_message(f"✅ {member.mention} has been kicked!\nReason: {reason}")
-        
+
         # Log the kick
         await send_mod_log(
             guild=interaction.guild,
@@ -294,7 +304,7 @@ async def kick_slash(interaction: discord.Interaction, member: discord.Member, r
             ],
             thumbnail=member.avatar.url if member.avatar else None
         )
-                
+
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to kick this member!", ephemeral=True)
     except Exception as e:
@@ -340,7 +350,7 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
     try:
         await member.ban(reason=reason)
         await interaction.response.send_message(f"✅ {member.mention} has been banned!\nReason: {reason}")
-        
+
         # After successfully banning the member, log it
         if BAN_LOG_CHANNEL_ID:
             log_channel = interaction.guild.get_channel(BAN_LOG_CHANNEL_ID)
@@ -354,12 +364,12 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
                 embed.add_field(name="Reason", value=reason, inline=False)
                 embed.add_field(name="User ID", value=str(member.id), inline=True)
                 embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-                
+
                 try:
                     await log_channel.send(embed=embed)
                 except Exception as e:
                     print(f"Failed to send ban log: {e}")
-                    
+
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to ban this member!", ephemeral=True)
     except Exception as e:
@@ -461,7 +471,7 @@ async def mute(ctx, member: discord.Member, duration: int = 10, *, reason="No re
     try:
         # Calculate timeout duration
         timeout_until = discord.utils.utcnow() + datetime.timedelta(minutes=duration)
-        
+
         # Send DM to the user before muting
         try:
             await member.send(f"You have been muted in **{ctx.guild.name}** for {duration} minutes.\nReason: {reason}")
@@ -470,10 +480,10 @@ async def mute(ctx, member: discord.Member, duration: int = 10, *, reason="No re
 
         # Apply the timeout
         await member.timeout(timeout_until, reason=f"{reason} (by {ctx.author})")
-        
+
         # Send confirmation message
         await ctx.send(f"✅ {member.mention} has been muted for {duration} minutes!\nReason: {reason}")
-        
+
         # Log the mute
         await send_mod_log(
             guild=ctx.guild,
@@ -489,7 +499,7 @@ async def mute(ctx, member: discord.Member, duration: int = 10, *, reason="No re
             ],
             thumbnail=member.avatar.url if member.avatar else None
         )
-        
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to timeout this member!")
     except Exception as e:
@@ -599,36 +609,38 @@ async def set_welcome_channel(interaction: discord.Interaction, channel: discord
     await interaction.response.send_message(f"✅ Welcome channel set to {channel.mention}", ephemeral=True)
 
 
-async def send_mod_log(guild: discord.Guild, title: str, description: str, color: int, fields: list = None, thumbnail: str = None):
+async def send_mod_log(guild: discord.Guild, title: str, description: str, color: int, fields: list = None,
+                       thumbnail: str = None):
     """Helper function to send mod logs to the log channel"""
     global LOG_CHANNEL_ID
     if not LOG_CHANNEL_ID:
         return False
-    
+
     try:
         log_channel = guild.get_channel(LOG_CHANNEL_ID)
         if not log_channel:
             return False
-            
+
         embed = discord.Embed(
             title=title,
             description=description,
             color=color,
             timestamp=discord.utils.utcnow()
         )
-        
+
         if fields:
             for name, value, inline in fields:
                 embed.add_field(name=name, value=value, inline=inline)
-                
+
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
-            
+
         await log_channel.send(embed=embed)
         return True
     except Exception as e:
         print(f"Failed to send mod log: {e}")
         return False
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -636,11 +648,11 @@ async def setlogchannel(ctx, channel: discord.TextChannel = None):
     """Set the moderation log channel (prefix command)"""
     if not channel:
         channel = ctx.channel
-    
+
     global LOG_CHANNEL_ID
     LOG_CHANNEL_ID = channel.id
     await ctx.send(f"✅ Log channel set to {channel.mention}")
-    
+
     # Send a test log
     await send_mod_log(
         guild=ctx.guild,
@@ -653,6 +665,7 @@ async def setlogchannel(ctx, channel: discord.TextChannel = None):
         ]
     )
 
+
 @bot.tree.command(name="setlogchannel", description="Set the moderation log channel")
 @app_commands.describe(channel="The channel to send moderation logs to")
 @commands.has_permissions(administrator=True)
@@ -660,7 +673,7 @@ async def set_log_channel(interaction: discord.Interaction, channel: discord.Tex
     """Set the moderation log channel (slash command)"""
     global LOG_CHANNEL_ID
     LOG_CHANNEL_ID = channel.id
-    
+
     # Send a test log
     await send_mod_log(
         guild=interaction.guild,
@@ -672,7 +685,7 @@ async def set_log_channel(interaction: discord.Interaction, channel: discord.Tex
             ("Channel", channel.mention, True)
         ]
     )
-    
+
     await interaction.response.send_message(f"✅ Log channel set to {channel.mention}", ephemeral=True)
 
 
@@ -743,7 +756,7 @@ async def on_message(message):
                     print(f"❌ No permission to delete message from {message.author}")
                 except Exception as e:
                     print(f"❌ Error deleting message: {e}")
-    
+
     # Let the bot process commands naturally
     await bot.process_commands(message)
 
@@ -760,7 +773,6 @@ async def on_message(message):
     app_commands.Choice(name="reset", value="reset")
 ])
 async def filter_command(interaction: discord.Interaction, action: str, word: str = None):
-    
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ You need Administrator permissions to use this command!",
                                                 ephemeral=True)
@@ -837,7 +849,7 @@ async def filter_command(interaction: discord.Interaction, action: str, word: st
         embed.add_field(name="Total Filtered Words", value=str(len(custom_filter_words)), inline=True)
         embed.set_footer(text=f"Reset by {interaction.user.name}")
         await interaction.response.send_message(embed=embed, ephemeral=True)
-    
+
     elif action == "list":
         # Show uncensored words for moderators
         word_list = ", ".join([f"`{word}`" for word in custom_filter_words])
@@ -849,13 +861,13 @@ async def filter_command(interaction: discord.Interaction, action: str, word: st
         )
         embed.add_field(name="Filtered Words", value=word_list or "No words in filter", inline=False)
         embed.set_footer(text=f"Requested by {interaction.user.name}")
-        
+
         try:
             await interaction.user.send(embed=embed)
             await interaction.response.send_message("📝 Filter list sent to your DMs!", ephemeral=True, delete_after=5)
         except discord.Forbidden:
             await interaction.response.send_message(
-                "❌ I can't send you a DM! Please enable DMs from server members.", 
+                "❌ I can't send you a DM! Please enable DMs from server members.",
                 ephemeral=True,
                 delete_after=10
             )
@@ -866,11 +878,12 @@ async def filter_command(interaction: discord.Interaction, action: str, word: st
             ephemeral=True
         )
 
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def filter(ctx, action=None, *, word=None):
     """Manage the chat filter (prefix command)
-    
+
     Actions:
     - add <word>: Add a word to the filter
     - remove <word>: Remove a word from the filter
@@ -897,7 +910,7 @@ async def filter(ctx, action=None, *, word=None):
 
         custom_filter_words.append(word)
         await ctx.send(f"✅ Added `{word}` to the filter!")
-        
+
         # Log the filter addition
         await send_mod_log(
             guild=ctx.guild,
@@ -923,7 +936,7 @@ async def filter(ctx, action=None, *, word=None):
 
         custom_filter_words.remove(word)
         await ctx.send(f"✅ Removed `{word}` from the filter!")
-        
+
         # Log the filter removal
         await send_mod_log(
             guild=ctx.guild,
@@ -945,28 +958,28 @@ async def filter(ctx, action=None, *, word=None):
         # Split the list into chunks to avoid hitting embed field value limits
         chunk_size = 20
         chunks = [custom_filter_words[i:i + chunk_size] for i in range(0, len(custom_filter_words), chunk_size)]
-        
+
         embed = discord.Embed(
             title=f"🚫 Filtered Words ({len(custom_filter_words)} total)",
             color=0xff0000
         )
-        
+
         for i, chunk in enumerate(chunks, 1):
             filter_list = "\n".join([f"• `{w}`" for w in chunk])
             embed.add_field(
-                name=f"Words {((i-1)*chunk_size)+1}-{min(i*chunk_size, len(custom_filter_words))}",
+                name=f"Words {((i - 1) * chunk_size) + 1}-{min(i * chunk_size, len(custom_filter_words))}",
                 value=filter_list,
                 inline=False
             )
-            
+
         embed.set_footer(text=f"Requested by {ctx.author}")
-        
+
         try:
             await ctx.author.send(embed=embed)
             await ctx.send("📝 Filter list sent to your DMs!", delete_after=3)
         except discord.Forbidden:
             await ctx.send("❌ I can't send you a DM! Please enable DMs from server members.", delete_after=5)
-        
+
         # Log the filter list view
         await send_mod_log(
             guild=ctx.guild,
@@ -984,7 +997,7 @@ async def filter(ctx, action=None, *, word=None):
         old_count = len(custom_filter_words)
         custom_filter_words = default_filter_words.copy()
         new_count = len(custom_filter_words)
-        
+
         embed = discord.Embed(
             title="🔄 Filter Reset",
             description="Chat filter has been reset to default settings",
@@ -993,9 +1006,9 @@ async def filter(ctx, action=None, *, word=None):
         embed.add_field(name="Previous Word Count", value=str(old_count), inline=True)
         embed.add_field(name="New Word Count", value=str(new_count), inline=True)
         embed.set_footer(text=f"Reset by {ctx.author}")
-        
+
         await ctx.send(embed=embed)
-        
+
         # Log the filter reset
         await send_mod_log(
             guild=ctx.guild,
@@ -1012,6 +1025,7 @@ async def filter(ctx, action=None, *, word=None):
     else:
         await ctx.send("❌ Invalid action! Use: `add`, `remove`, `list`, or `reset`")
         return
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -1066,10 +1080,10 @@ async def purge(ctx, limit: int = 10, *, reason="No reason provided"):
         # Purge messages (limit + 1 to include the command message)
         deleted = await ctx.channel.purge(limit=limit + 1, before=ctx.message)
         deleted_count = len(deleted) - 1  # Exclude the command message
-        
+
         # Send confirmation message
         message = await ctx.send(f"✅ Purged {deleted_count} messages!", delete_after=5)
-        
+
         # Log the purge
         await send_mod_log(
             guild=ctx.guild,
@@ -1083,7 +1097,7 @@ async def purge(ctx, limit: int = 10, *, reason="No reason provided"):
                 ("Reason", reason, False)
             ]
         )
-        
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to manage messages in this channel!")
     except Exception as e:
@@ -1111,13 +1125,13 @@ async def help(ctx, *, command_name=None):
         if not command:
             await ctx.send(f"❌ Command `{command_name}` not found! Use `bread help` to see all commands.")
             return
-            
+
         embed = discord.Embed(
             title=f"🍞 Help: bread {command.name}",
             description=command.help or "No description available.",
             color=0x00ff00
         )
-        
+
         # Add usage examples based on command
         usage = f"`bread {command.name}`"
         if command.clean_params:
@@ -1128,9 +1142,9 @@ async def help(ctx, *, command_name=None):
                 else:
                     params.append(f"[{name}]")
             usage = f"`bread {command.name} {' '.join(params)}`"
-            
+
         embed.add_field(name="Usage", value=usage, inline=False)
-        
+
         # Add common examples
         examples = {
             "ban": "`bread ban @user Breaking rules`\n`bread ban @user 7d Spamming (bans for 7 days)`",
@@ -1145,10 +1159,10 @@ async def help(ctx, *, command_name=None):
             "setwelcome": "`bread setwelcome #welcome`\n`bread setwelcome` (uses current channel)",
             "broadcast": "`bread broadcast Hello everyone!`\n`bread broadcast ping Important announcement!`"
         }
-        
+
         if command.name in examples:
             embed.add_field(name="Examples", value=examples[command.name], inline=False)
-        
+
         # Add required permissions if any
         if command.checks:
             perms = []
@@ -1164,23 +1178,23 @@ async def help(ctx, *, command_name=None):
                 perms.append("Kick Members")
             if commands.has_permissions(moderate_members=True) in command.checks:
                 perms.append("Moderate Members")
-                
+
             if perms:
                 embed.add_field(name="Required Permissions", value=", ".join(perms), inline=False)
-        
+
         await ctx.send(embed=embed)
         return
-    
+
     # Create main help embed
     embed = discord.Embed(
         title="🍞 Bread Bot - Command Reference",
         description="**Available Commands** • Use `bread help <command>` for detailed info",
         color=0x00ff00
     )
-    
+
     # Add bot avatar
     embed.set_thumbnail(url=ctx.bot.user.avatar.url if ctx.bot.user.avatar else None)
-    
+
     # 🔹 GENERAL COMMANDS (always visible)
     general_commands = [
         ("hello", "Say hello to the bot"),
@@ -1189,14 +1203,14 @@ async def help(ctx, *, command_name=None):
         ("help [command]", "Show this help or get help for a specific command"),
         ("dm <message>", "Send yourself a DM with the specified message")
     ]
-    
+
     general_text = "\n".join([f"`bread {cmd}` - {desc}" for cmd, desc in general_commands])
     embed.add_field(
         name="🔹 General Commands",
         value=general_text,
         inline=False
     )
-    
+
     # Check user permissions
     has_mod_perms = any([
         ctx.author.guild_permissions.moderate_members,
@@ -1204,7 +1218,7 @@ async def help(ctx, *, command_name=None):
         ctx.author.guild_permissions.manage_messages,
         ctx.author.guild_permissions.administrator
     ])
-    
+
     # 🔨 MODERATION COMMANDS (for users with mod permissions)
     if has_mod_perms:
         mod_commands = [
@@ -1217,14 +1231,14 @@ async def help(ctx, *, command_name=None):
             ("lock [#channel] [reason]", "Lock a channel (prevents @everyone from sending messages)"),
             ("unlock [#channel] [reason]", "Unlock a previously locked channel")
         ]
-        
+
         mod_text = "\n".join([f"`bread {cmd}` - {desc}" for cmd, desc in mod_commands])
         embed.add_field(
             name="🔨 Moderation Commands",
             value=mod_text,
             inline=False
         )
-    
+
     # ⚙️ ADMIN COMMANDS (for administrators only)
     if ctx.author.guild_permissions.administrator:
         admin_commands = [
@@ -1233,14 +1247,14 @@ async def help(ctx, *, command_name=None):
             ("setlogchannel [#channel]", "Set channel for moderation logs"),
             ("broadcast <message>", "Send a message to all text channels")
         ]
-        
+
         admin_text = "\n".join([f"`bread {cmd}` - {desc}" for cmd, desc in admin_commands])
         embed.add_field(
             name="⚙️ Administrator Commands",
             value=admin_text,
             inline=False
         )
-    
+
     # ⚡ SLASH COMMANDS INFO
     slash_info = (
         "**💡 Tip:** Most commands also work as slash commands!\n"
@@ -1252,17 +1266,18 @@ async def help(ctx, *, command_name=None):
         value=slash_info,
         inline=False
     )
-    
+
     # Footer with usage instructions
     permissions_note = ""
     if not has_mod_perms:
         permissions_note = " • 🔒 Some commands hidden (need permissions)"
-    
+
     embed.set_footer(
         text=f"Use 'bread help <command>' for detailed info{permissions_note}"
     )
-    
+
     await ctx.send(embed=embed)
+
 
 @bot.command()
 async def me(ctx):
@@ -1356,18 +1371,18 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
 
         # Permission check
         if command in admin_commands and not (
-            interaction.user.guild_permissions.moderate_members or
-            interaction.user.guild_permissions.manage_channels or
-            interaction.user.guild_permissions.manage_roles or
-            interaction.user.guild_permissions.manage_messages or
-            interaction.user.guild_permissions.administrator
+                interaction.user.guild_permissions.moderate_members or
+                interaction.user.guild_permissions.manage_channels or
+                interaction.user.guild_permissions.manage_roles or
+                interaction.user.guild_permissions.manage_messages or
+                interaction.user.guild_permissions.administrator
         ):
             await interaction.response.send_message(
                 "❌ You don't have permission to view this command!",
                 ephemeral=True
             )
             return
-        
+
         # Command examples and descriptions
         command_info = {
             "hello": {
@@ -1446,21 +1461,21 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
                 "example": "`/broadcast message:Server restart in 5 minutes ping:true`\n`bread broadcast ping Server restart in 5 minutes`"
             }
         }.get(command.lower())
-        
+
         if not command_info:
             await interaction.response.send_message("❌ Command not found!", ephemeral=True)
             return
-            
+
         embed = discord.Embed(
             title=f"ℹ️ Help: /{command.lower()}",
             description=command_info["description"],
             color=0x00ff00
         )
-        
+
         # Add command usage and examples
         embed.add_field(name="Usage", value=command_info["usage"], inline=False)
         embed.add_field(name="Examples", value=command_info["example"], inline=False)
-        
+
         # Add required permissions if any
         if command.lower() in ["filter", "setwelcome", "setlogchannel", "broadcast"]:
             embed.add_field(name="Required Permissions", value="Administrator", inline=False)
@@ -1470,23 +1485,23 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
                 value="Moderate Members, Manage Roles, or Manage Messages",
                 inline=False
             )
-        
+
         await interaction.response.send_message(embed=embed)
         return
-    
+
     # Main help command (no specific command requested)
     embed = discord.Embed(
         title="🍞 Bread Bot Commands",
         description="Here are all available commands. Use `/help <command>` for more info on a specific command.",
         color=0x00ff00
     )
-    
+
     # Add bot avatar
     if interaction.guild and interaction.guild.me.avatar:
         embed.set_thumbnail(url=interaction.guild.me.avatar.url)
     elif interaction.client.user.avatar:
         embed.set_thumbnail(url=interaction.client.user.avatar.url)
-    
+
     # General Commands (always visible)
     general_commands = [
         ("/hello | bread hello", "Say hello to the bot"),
@@ -1494,17 +1509,17 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
         ("/status | bread status", "Show bot status and statistics"),
         ("/help [command] | bread help [command]", "Show this help or get help for a specific command")
     ]
-    
+
     # Format general commands
     general_text = "\n".join([f"`{cmd}` - {desc}" for cmd, desc in general_commands])
-    
+
     # Add general commands section
     embed.add_field(
         name="🔹 General Commands",
         value=general_text,
         inline=False
     )
-    
+
     # Check for mod permissions
     has_mod_perms = any([
         interaction.user.guild_permissions.moderate_members,
@@ -1512,69 +1527,77 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
         interaction.user.guild_permissions.manage_messages,
         interaction.user.guild_permissions.administrator
     ])
-    
+
     if has_mod_perms:
         # Moderation Commands
         mod_commands = [
             ("/kick @user [reason] | bread kick @user [reason]", "Kick a member from the server"),
             ("/ban @user [duration] [reason] | bread ban @user [reason]", "Ban a member from the server"),
             ("/unban userid [reason] | bread unban userid [reason]", "Unban a user by their ID"),
-            ("/mute @user [duration] [reason] | bread mute @user [duration] [reason]", "Mute a member for a specified duration"),
+            ("/mute @user [duration] [reason] | bread mute @user [duration] [reason]",
+             "Mute a member for a specified duration"),
             ("/unmute @user [reason] | bread unmute @user [reason]", "Unmute a member"),
             ("/purge [amount] [reason] | bread purge [amount] [reason]", "Delete messages (default: 10, max: 100)"),
-            ("/lock [#channel] [reason] | bread lock [#channel] [reason]", "Lock a channel (current channel if none specified)"),
-            ("/unlock [#channel] [reason] | bread unlock [#channel] [reason]", "Unlock a channel (current channel if none specified)")
+            ("/lock [#channel] [reason] | bread lock [#channel] [reason]",
+             "Lock a channel (current channel if none specified)"),
+            ("/unlock [#channel] [reason] | bread unlock [#channel] [reason]",
+             "Unlock a channel (current channel if none specified)")
         ]
-        
+
         # Format moderation commands
         mod_text = "\n".join([f"`{cmd}` - {desc}" for cmd, desc in mod_commands])
-        
+
         # Add moderation commands section
         embed.add_field(
             name="🔨 Moderation Commands",
             value=mod_text,
             inline=False
         )
-    
+
     # Admin Commands (for users with admin permissions)
     if interaction.user.guild_permissions.administrator:
         admin_commands = [
-            ("/filter <action> [word] | bread filter <action> [word]", "Manage the chat filter (add/remove/list/reset)"),
-            ("/setwelcome [#channel] | bread setwelcome [#channel]", "Set the welcome channel (current channel if none specified)"),
-            ("/setlogchannel [#channel] | bread setlogchannel [#channel]", "Set the log channel (current channel if none specified)"),
+            ("/filter <action> [word] | bread filter <action> [word]",
+             "Manage the chat filter (add/remove/list/reset)"),
+            ("/setwelcome [#channel] | bread setwelcome [#channel]",
+             "Set the welcome channel (current channel if none specified)"),
+            ("/setlogchannel [#channel] | bread setlogchannel [#channel]",
+             "Set the log channel (current channel if none specified)"),
             ("/broadcast [message] | bread broadcast [message]", "Send a message to all channels")
         ]
-        
+
         # Format admin commands
         admin_text = "\n".join([f"`{cmd}` - {desc}" for cmd, desc in admin_commands])
-        
+
         # Add admin commands section
         embed.add_field(
             name="⚙️ Admin Commands",
             value=admin_text,
             inline=False
         )
-    
+
     # Add footer with usage instructions
     permissions_note = ""
     if not has_mod_perms:
         permissions_note = "\n🔒 Some commands are hidden. Ask a moderator for access."
-    
+
     embed.set_footer(
         text=f"Use '/help <command>' or 'bread help <command>' for detailed help about a command.{permissions_note}"
     )
-    
+
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 @bot.command()
 async def setwelcome(ctx, channel: discord.TextChannel = None):
     """Set the welcome channel for new members (prefix command)"""
     if not channel:
         channel = ctx.channel
-    
+
     global WELCOME_CHANNEL_ID
     WELCOME_CHANNEL_ID = channel.id
     await ctx.send(f"✅ Welcome channel set to {channel.mention}")
+
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
@@ -1613,10 +1636,10 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
 
         # Ban the user
         await member.ban(reason=f"{reason} (banned by {ctx.author})", delete_message_days=7)
-        
+
         # Send confirmation message
         await ctx.send(f"✅ {member.mention} has been banned!\nReason: {reason}")
-        
+
         # Log the ban
         await send_mod_log(
             guild=ctx.guild,
@@ -1647,7 +1670,7 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
                 ("Target", f"{member} ({member.id})", True)
             ]
         )
-                    
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to ban this member!")
     except Exception as e:
@@ -1730,12 +1753,12 @@ async def slash_unmute(interaction: discord.Interaction, member: discord.Member,
 
         # Remove the timeout
         await member.timeout(None, reason=f"{reason} (unmuted by {interaction.user})")
-        
+
         # Send confirmation message
         await interaction.response.send_message(
             f"✅ {member.mention} has been unmuted!\nReason: {reason}"
         )
-        
+
         # Log the unmute
         await send_mod_log(
             guild=interaction.guild,
@@ -1750,7 +1773,7 @@ async def slash_unmute(interaction: discord.Interaction, member: discord.Member,
             ],
             thumbnail=member.avatar.url if member.avatar else None
         )
-        
+
     except discord.Forbidden:
         await interaction.response.send_message(
             "❌ I don't have permission to unmute this member!",
@@ -1977,6 +2000,7 @@ async def unlock(interaction: discord.Interaction, channel: discord.TextChannel 
         await interaction.response.send_message(f"❌ An error occurred: {e}", ephemeral=True)
         return
 
+
 @bot.command()
 async def dm(ctx, *, message: str = None):
     if not message:
@@ -1988,6 +2012,7 @@ async def dm(ctx, *, message: str = None):
     except discord.Forbidden:
         await ctx.send("❌ I can't send you a DM! Please enable DMs from server members.", delete_after=5)
         return
+
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
@@ -2006,6 +2031,7 @@ async def unban(ctx, user: discord.User, *, reason="No reason provided"):
     except Exception as e:
         await ctx.send(f"❌ An error occurred: {e}")
     return
+
 
 @bot.command()
 @commands.has_permissions(moderate_members=True)
@@ -2029,10 +2055,10 @@ async def unmute(ctx, member: discord.Member, *, reason="No reason provided"):
 
         # Remove the timeout
         await member.timeout(None, reason=f"{reason} (unmuted by {ctx.author})")
-        
+
         # Send confirmation message
         await ctx.send(f"✅ {member.mention} has been unmuted!\nReason: {reason}")
-        
+
         # Log the unmute
         await send_mod_log(
             guild=ctx.guild,
@@ -2047,7 +2073,7 @@ async def unmute(ctx, member: discord.Member, *, reason="No reason provided"):
             ],
             thumbnail=member.avatar.url if member.avatar else None
         )
-        
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to unmute this member!")
     except Exception as e:
@@ -2065,6 +2091,7 @@ async def unmute(ctx, member: discord.Member, *, reason="No reason provided"):
             ]
         )
 
+
 @bot.command()
 @commands.has_permissions(manage_channels=True)
 async def lock(ctx, channel: discord.TextChannel = None, *, reason="No reason provided"):
@@ -2079,7 +2106,7 @@ async def lock(ctx, channel: discord.TextChannel = None, *, reason="No reason pr
         # Get the everyone role and current permissions
         everyone_role = ctx.guild.default_role
         current_perms = target_channel.overwrites_for(everyone_role)
-        
+
         # Check if channel is already locked
         if current_perms.send_messages is False:
             await ctx.send(f"❌ {target_channel.mention} is already locked!")
@@ -2087,7 +2114,7 @@ async def lock(ctx, channel: discord.TextChannel = None, *, reason="No reason pr
 
         # Save the previous send_messages permission to restore it later
         previous_send_messages = current_perms.send_messages
-        
+
         # Lock the channel
         await target_channel.set_permissions(
             everyone_role,
@@ -2104,7 +2131,7 @@ async def lock(ctx, channel: discord.TextChannel = None, *, reason="No reason pr
         embed.add_field(name="Reason", value=reason, inline=False)
         embed.add_field(name="Locked by", value=ctx.author.mention, inline=True)
         await ctx.send(embed=embed)
-        
+
         # Log the channel lock
         await send_mod_log(
             guild=ctx.guild,
@@ -2118,7 +2145,7 @@ async def lock(ctx, channel: discord.TextChannel = None, *, reason="No reason pr
                 ("Previous Setting", "Allowed" if previous_send_messages is None else str(previous_send_messages), True)
             ]
         )
-        
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to modify this channel!")
         # Log the error
@@ -2163,7 +2190,7 @@ async def unlock(ctx, channel: discord.TextChannel = None, *, reason="No reason 
         # Get the everyone role and current permissions
         everyone_role = ctx.guild.default_role
         current_perms = target_channel.overwrites_for(everyone_role)
-        
+
         # Check if channel is already unlocked
         if current_perms.send_messages is None or current_perms.send_messages is True:
             await ctx.send(f"ℹ️ {target_channel.mention} is already unlocked!")
@@ -2171,11 +2198,12 @@ async def unlock(ctx, channel: discord.TextChannel = None, *, reason="No reason 
 
         # Save the previous send_messages permission for logging
         previous_send_messages = current_perms.send_messages
-        
+
         # Unlock the channel by resetting the send_messages permission
         if current_perms.is_empty():
             # If no other permissions are set, remove the entire override
-            await target_channel.set_permissions(everyone_role, overwrite=None, reason=f"{reason} (unlocked by {ctx.author})")
+            await target_channel.set_permissions(everyone_role, overwrite=None,
+                                                 reason=f"{reason} (unlocked by {ctx.author})")
         else:
             # Otherwise, just reset the send_messages permission
             await target_channel.set_permissions(
@@ -2193,7 +2221,7 @@ async def unlock(ctx, channel: discord.TextChannel = None, *, reason="No reason 
         embed.add_field(name="Reason", value=reason, inline=False)
         embed.add_field(name="Unlocked by", value=ctx.author.mention, inline=True)
         await ctx.send(embed=embed)
-        
+
         # Log the channel unlock
         await send_mod_log(
             guild=ctx.guild,
@@ -2207,7 +2235,7 @@ async def unlock(ctx, channel: discord.TextChannel = None, *, reason="No reason 
                 ("Previous Setting", "Locked" if previous_send_messages is False else str(previous_send_messages), True)
             ]
         )
-        
+
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to modify this channel!")
         # Log the error
