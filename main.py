@@ -753,8 +753,14 @@ async def on_message(message):
             await message.channel.send("Hello! You cannot use prefix commands in DMs, use slash commands instead.")
         return
 
+    # Check if message starts with the command prefix
+    if message.content.startswith('bread '):
+        # Let the bot process commands naturally
+        await bot.process_commands(message)
+        return
+
     # Check for filtered words (only in guilds, and only if it's not a command)
-    if message.guild and not message.content.startswith('bread '):
+    if message.guild:
         message_lower = message.content.lower()
         for word in custom_filter_words:
             if word in message_lower:
@@ -772,9 +778,9 @@ async def on_message(message):
                     print(f"❌ No permission to delete message from {message.author}")
                 except Exception as e:
                     print(f"❌ Error deleting message: {e}")
-
-    # Let the bot process commands naturally
-    await bot.process_commands(message)
+                    
+        # Process any other non-command messages if needed
+        await bot.process_commands(message)
 
 
 @bot.tree.command(name="filter", description="Manage the chat filter")
