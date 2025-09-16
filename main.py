@@ -20,7 +20,18 @@ from discord import app_commands
 
 # --- MongoDB Setup ---
 MONGO_URI = "mongodb+srv://a99andres56_db_user:hlxIJzLKwPtEWayO@breadbot.aqvugjd.mongodb.net/?retryWrites=true&w=majority&appName=breadbot"
-client = MongoClient(MONGO_URI)
+
+# Create a new client and connect to the server
+client = MongoClient(
+    MONGO_URI,
+    tls=True,
+    tlsAllowInvalidCertificates=False,
+    tlsAllowInvalidHostnames=True,
+    retryWrites=True,
+    w='majority',
+    appName='breadbot'
+)
+
 db = client["breadbot"]
 config_collection = db["config"]
 
