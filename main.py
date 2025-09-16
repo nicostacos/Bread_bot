@@ -12,8 +12,50 @@ import threading
 from flask import Flask
 import aiohttp
 import asyncio
+from pymongo import MongoClient  # ✅ MongoDB import
+import discord
+from discord.ext import commands
+from discord import app_commands
+
+
+# --- MongoDB Setup ---
+MONGO_URI = "mongodb+srv://a99andres56_db_user:hlxIJzLKwPtEWayO@breadbot.aqvugjd.mongodb.net/?retryWrites=true&w=majority&appName=breadbot"
+client = MongoClient(MONGO_URI)
+db = client["breadbot"]
+config_collection = db["config"]
+
 
 LOG_CHANNEL_ID = None
+WELCOME_CHANNEL_ID = None
+
+def save_config(guild_id, log_channel=None, welcome_channel=None):
+    update_data = {}
+    if log_channel is not None:
+            update_data["log_channel"] = log_channel
+    if welcome_channel is not None:
+            update_data["welcome_channel"] = welcome_channel
+
+
+    if update_data:
+        config_collection.update_one(
+        {"guild_id": guild_id},
+        {"$set": update_data},
+        upsert=True
+)
+def load_config(guild_id):
+    data = config_collection.find_one({"guild_id": guild_id})
+    if data:
+        return data.get("log_channel"), data.get("welcome_channel")
+    return None, None
+
+def debug_db():
+    """Debug function to print all documents in the config collection"""
+    print("\n=== DEBUG: MongoDB Config Collection ===")
+    for doc in config_collection.find():
+        print(f"Document: {doc}")
+    print("=== End of MongoDB Debug ===\n")
+
+
 
 app = Flask(__name__)
 
@@ -129,7 +171,7 @@ async def on_ready():
 secret_role = "bot test"
 GUILD_ID = 1247215187799572643
 BOT_OWNER_ID = 993607806915706891
-WELCOME_CHANNEL_ID = None
+
 
 # Add this at the top with other variables
 bot_start_time = None
@@ -642,51 +684,8 @@ async def send_mod_log(guild: discord.Guild, title: str, description: str, color
         return False
 
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def setlogchannel(ctx, channel: discord.TextChannel = None):
-    """Set the moderation log channel (prefix command)"""
-    if not channel:
-        channel = ctx.channel
-
-    global LOG_CHANNEL_ID
-    LOG_CHANNEL_ID = channel.id
-    await ctx.send(f"✅ Log channel set to {channel.mention}")
-
-    # Send a test log
-    await send_mod_log(
-        guild=ctx.guild,
-        title="🔧 Log Channel Set",
-        description=f"Moderation logs will now be sent to this channel.",
-        color=0x00ff00,
-        fields=[
-            ("Set by", ctx.author.mention, True),
-            ("Channel", channel.mention, True)
-        ]
-    )
-
-
-@bot.tree.command(name="setlogchannel", description="Set the moderation log channel")
-@app_commands.describe(channel="The channel to send moderation logs to")
-@commands.has_permissions(administrator=True)
-async def set_log_channel(interaction: discord.Interaction, channel: discord.TextChannel):
-    """Set the moderation log channel (slash command)"""
-    global LOG_CHANNEL_ID
-    LOG_CHANNEL_ID = channel.id
-
-    # Send a test log
-    await send_mod_log(
-        guild=interaction.guild,
-        title="🔧 Log Channel Set",
-        description=f"Moderation logs will now be sent to this channel.",
-        color=0x00ff00,
-        fields=[
-            ("Set by", interaction.user.mention, True),
-            ("Channel", channel.mention, True)
-        ]
-    )
-
-    await interaction.response.send_message(f"✅ Log channel set to {channel.mention}", ephemeral=True)
+# Removed duplicate setlogchannel command - using the setlog command instead
+# The slash command is now handled by the main setlog command with app_commands
 
 
 @bot.event
@@ -698,6 +697,8 @@ async def on_ready():
     try:
         synced = await bot.tree.sync()
         print(f"✅ Synced {len(synced)} global commands: {[cmd.name for cmd in synced]}")
+        # Print debug info on startup
+        debug_db()
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
 
@@ -705,15 +706,19 @@ async def on_ready():
 # new members
 @bot.event
 async def on_member_join(member):
+    """Handle new member joining the server"""
     # Send DM
     try:
         await member.send(f"Welcome to the server {member.name}")
     except Exception as e:
         print(f"Failed to send DM to {member.name}: {e}")
 
+    # Get welcome channel from database
+    _, welcome_channel_id = load_config(member.guild.id)
+    
     # Send embed to welcome channel if set
-    if WELCOME_CHANNEL_ID:
-        channel = member.guild.get_channel(WELCOME_CHANNEL_ID)
+    if welcome_channel_id:
+        channel = member.guild.get_channel(welcome_channel_id)
         if channel:
             embed = discord.Embed(
                 title="Welcome!",
@@ -1064,6 +1069,163 @@ async def broadcast(ctx, *, message):
         await ctx.send(f"❌ An error occurred: {e}")
 
 
+@bot.tree.command(name="setchannel", description="Set up log and welcome channels")
+async def set_channel(
+    interaction: discord.Interaction,
+    log_channel: discord.TextChannel = None,
+    welcome_channel: discord.TextChannel = None
+):
+    """Set up log and welcome channels for the server"""
+    try:
+        if not any([log_channel, welcome_channel]):
+            return await interaction.response.send_message(
+                "Please specify at least one channel (log_channel or welcome_channel).",
+                ephemeral=True
+            )
+        
+        # Get current config
+        current_log, current_welcome = load_config(interaction.guild_id)
+        
+        # Update config with new values
+        new_log = log_channel.id if log_channel else current_log
+        new_welcome = welcome_channel.id if welcome_channel else current_welcome
+        
+        # Save to MongoDB
+        save_config(
+            guild_id=interaction.guild_id,
+            log_channel=new_log,
+            welcome_channel=new_welcome
+        )
+        
+        # Prepare response
+        response = "✅ Channel configuration updated!\n"
+        if log_channel:
+            response += f"- Log Channel: {log_channel.mention}\n"
+        if welcome_channel:
+            response += f"- Welcome Channel: {welcome_channel.mention}"
+            
+        await interaction.response.send_message(response, ephemeral=True)
+        
+    except Exception as e:
+        await interaction.response.send_message(
+            f"❌ An error occurred: {str(e)}",
+            ephemeral=True
+        )
+
+@bot.command(name='setlog', aliases=['setlogchannel'], help='Set the log channel for moderation logs')
+@commands.has_permissions(administrator=True)
+async def setlog(ctx, channel: discord.TextChannel = None):
+    """Set the log channel for moderation logs (prefix command)"""
+    if not channel:
+        channel = ctx.channel
+        
+    try:
+        # Get current config
+        _, current_welcome = load_config(ctx.guild.id)
+        
+        # Save to MongoDB
+        save_config(
+            guild_id=ctx.guild.id,
+            log_channel=channel.id,
+            welcome_channel=current_welcome  # Keep existing welcome channel
+        )
+        
+        # Update global variable
+        global LOG_CHANNEL_ID
+        LOG_CHANNEL_ID = channel.id
+        
+        # Send confirmation
+        await ctx.send(f"✅ Log channel set to {channel.mention}")
+        
+        # Send a test log
+        await send_mod_log(
+            guild=ctx.guild,
+            title="🔧 Log Channel Set",
+            description="Moderation logs will now be sent to this channel.",
+            color=0x00ff00,
+            fields=[
+                ("Set by", ctx.author.mention, True),
+                ("Channel", channel.mention, True)
+            ]
+        )
+        
+    except Exception as e:
+        await ctx.send(f"❌ Error: {str(e)}")
+
+# Removed duplicate setwelcome command - using the one at line 1792 instead
+
+@bot.command(name='getchannels', aliases=['channels'], help='Show current channel configuration')
+async def getchannels(ctx):
+    """Show the current channel configuration (prefix command)"""
+    try:
+        # Get current config
+        log_channel_id, welcome_channel_id = load_config(ctx.guild.id)
+        
+        # Create embed
+        embed = discord.Embed(
+            title="Channel Configuration",
+            description=f"Current channel settings for {ctx.guild.name}",
+            color=discord.Color.blue()
+        )
+        
+        # Add fields
+        embed.add_field(
+            name="Log Channel",
+            value=f"<#{log_channel_id}>" if log_channel_id else "Not set",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="Welcome Channel",
+            value=f"<#{welcome_channel_id}>" if welcome_channel_id else "Not set",
+            inline=False
+        )
+        
+        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        await ctx.send(f"❌ Error: {str(e)}")
+
+@bot.tree.command(name="getchannels", description="Show current channel configuration")
+async def get_channels(interaction: discord.Interaction):
+    """Show the current channel configuration for this server"""
+    try:
+        # Get current config
+        log_channel_id, welcome_channel_id = load_config(interaction.guild_id)
+        
+        # Create embed
+        embed = discord.Embed(
+            title="Channel Configuration",
+            description=f"Current channel settings for {interaction.guild.name}",
+            color=discord.Color.blue()
+        )
+        
+        # Add fields
+        embed.add_field(
+            name="Log Channel",
+            value=f"<#{log_channel_id}>" if log_channel_id else "Not set",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="Welcome Channel",
+            value=f"<#{welcome_channel_id}>" if welcome_channel_id else "Not set",
+            inline=False
+        )
+        
+        embed.set_footer(text=f"Requested by {interaction.user}", icon_url=interaction.user.display_avatar.url)
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        await interaction.response.send_message(
+            f"❌ An error occurred: {str(e)}",
+            ephemeral=True
+        )
+
+
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def purge(ctx, limit: int = 10, *, reason="No reason provided"):
@@ -1155,8 +1317,11 @@ async def help(ctx, *, command_name=None):
             "lock": "`bread lock #general`\n`bread lock #general Under maintenance`",
             "unlock": "`bread unlock #general`\n`bread unlock #general Maintenance complete`",
             "filter": "`bread filter add badword`\n`bread filter remove badword`\n`bread filter list`\n`bread filter reset`",
-            "setlogchannel": "`bread setlogchannel #mod-logs`\n`bread setlogchannel` (uses current channel)",
+            "setlog": "`bread setlog #mod-logs`\n`bread setlog` (uses current channel)\nAlias: `setlogchannel`",
             "setwelcome": "`bread setwelcome #welcome`\n`bread setwelcome` (uses current channel)",
+            "getchannels": "`bread getchannels`\n`bread channels` (alternative)",
+            "setchannel": "`bread setchannel #log-channel #welcome-channel`\n`bread setchannel #log-channel` (set only log)\n`bread setchannel` (use current channel for both)",
+            "setlogchannel": "Alias for `setlog`",
             "broadcast": "`bread broadcast Hello everyone!`\n`bread broadcast ping Important announcement!`"
         }
 
@@ -1201,7 +1366,9 @@ async def help(ctx, *, command_name=None):
         ("me", "Show your Discord and server information"),
         ("status", "Display bot status and statistics"),
         ("help [command]", "Show this help or get help for a specific command"),
-        ("dm <message>", "Send yourself a DM with the specified message")
+        ("dm <message>", "Send yourself a DM with the specified message"),
+        ("getchannels", "Show current log and welcome channel settings"),
+        ("channels", "Alias for getchannels")
     ]
 
     general_text = "\n".join([f"`bread {cmd}` - {desc}" for cmd, desc in general_commands])
@@ -1220,24 +1387,27 @@ async def help(ctx, *, command_name=None):
     ])
 
     # 🔨 MODERATION COMMANDS (for users with mod permissions)
-    if has_mod_perms:
-        mod_commands = [
-            ("kick @user [reason]", "Kick a member from the server"),
-            ("ban @user [reason]", "Ban a member from the server"),
-            ("unban <user_id> [reason]", "Unban a user by their ID"),
-            ("mute @user [duration] [reason]", "Mute a member (default: 10 minutes)"),
-            ("unmute @user [reason]", "Remove timeout from a member"),
-            ("purge [amount] [reason]", "Delete messages (default: 10, max: 100)"),
-            ("lock [#channel] [reason]", "Lock a channel (prevents @everyone from sending messages)"),
-            ("unlock [#channel] [reason]", "Unlock a previously locked channel")
-        ]
+    mod_commands = [
+        ("ban @user [reason]", "Ban a user from the server"),
+        ("unban user#1234 [reason]", "Unban a user"),
+        ("kick @user [reason]", "Kick a user from the server"),
+        ("mute @user [duration] [reason]", "Mute a user (default: 10m)"),
+        ("unmute @user [reason]", "Unmute a user"),
+        ("purge [amount] [reason]", "Delete messages (default: 10, max: 2000)"),
+        ("filter <add|remove|list|reset> [word]", "Manage filtered words"),
+        ("lock [#channel] [reason]", "Lock a channel (default: current)"),
+        ("unlock [#channel] [reason]", "Unlock a channel"),
+        ("setlog [#channel]", "Set log channel (default: current)"),
+        ("setwelcome [#channel]", "Set welcome channel (default: current)"),
+        ("setchannel [#log] [#welcome]", "Set both channels at once")
+    ]
 
-        mod_text = "\n".join([f"`bread {cmd}` - {desc}" for cmd, desc in mod_commands])
-        embed.add_field(
-            name="🔨 Moderation Commands",
-            value=mod_text,
-            inline=False
-        )
+    mod_text = "\n".join([f"`bread {cmd}` - {desc}" for cmd, desc in mod_commands])
+    embed.add_field(
+        name="🔨 Moderation Commands",
+        value=mod_text,
+        inline=False
+    )
 
     # ⚙️ ADMIN COMMANDS (for administrators only)
     if ctx.author.guild_permissions.administrator:
@@ -1588,11 +1758,27 @@ async def slash_help(interaction: discord.Interaction, command: str = None):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-@bot.command()
+@bot.command(name='setwelcome', help='Set the welcome channel')
+@commands.has_permissions(administrator=True)
 async def setwelcome(ctx, channel: discord.TextChannel = None):
     """Set the welcome channel for new members (prefix command)"""
     if not channel:
         channel = ctx.channel
+        
+    try:
+        # Get current config
+        current_log, _ = load_config(ctx.guild.id)
+        
+        # Save to MongoDB
+        save_config(
+            guild_id=ctx.guild.id,
+            log_channel=current_log,  # Keep existing log channel
+            welcome_channel=channel.id
+        )
+        
+        await ctx.send(f"✅ Welcome channel set to {channel.mention}")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {str(e)}")
 
     global WELCOME_CHANNEL_ID
     WELCOME_CHANNEL_ID = channel.id
