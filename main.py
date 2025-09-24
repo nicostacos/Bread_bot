@@ -16,7 +16,9 @@ from pymongo import MongoClient  # ✅ MongoDB import
 import discord
 from discord.ext import commands
 from discord import app_commands
+from webhook_utils import send_webhook_message
 
+send_webhook_message("Bot is online!")
 
 # --- MongoDB Setup ---
 MONGO_URI = "mongodb+srv://a99andres56_db_user:hlxIJzLKwPtEWayO@breadbot.aqvugjd.mongodb.net/?retryWrites=true&w=majority&appName=breadbot"
