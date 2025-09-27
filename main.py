@@ -15,7 +15,6 @@ import asyncio
 from pymongo import MongoClient  # ✅ MongoDB import
 from webhook_utils import send_webhook_message
 
-send_webhook_message("booty")
 
 # --- MongoDB Setup
 
